@@ -30,12 +30,24 @@
     <ClInclude Include="picture.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="BMP.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Pic.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="picture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="BMP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Pic.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
