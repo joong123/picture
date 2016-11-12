@@ -1,0 +1,5 @@
+Togglezoom
+Zoom
+RefreshSurf
+CalcClipped
+CalcSurfMapInfo

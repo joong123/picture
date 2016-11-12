@@ -1,4 +1,4 @@
-// picture.cpp : ¶¨ÒåÓ¦ÓÃ³ÌĞòµÄÈë¿Úµã¡£
+ï»¿// picture.cpp : å®šä¹‰åº”ç”¨ç¨‹åºçš„å…¥å£ç‚¹ã€‚
 //
 
 #include "stdafx.h"
@@ -6,12 +6,12 @@
 
 #define MAX_LOADSTRING 100
 
-// È«¾Ö±äÁ¿: 
-HINSTANCE hInst;                                // µ±Ç°ÊµÀı
-WCHAR szTitle[MAX_LOADSTRING];                  // ±êÌâÀ¸ÎÄ±¾
-WCHAR szWindowClass[MAX_LOADSTRING];            // Ö÷´°¿ÚÀàÃû
+// å…¨å±€å˜é‡: 
+HINSTANCE hInst;                                // å½“å‰å®ä¾‹
+WCHAR szTitle[MAX_LOADSTRING];                  // æ ‡é¢˜æ æ–‡æœ¬
+WCHAR szWindowClass[MAX_LOADSTRING];            // ä¸»çª—å£ç±»å
 
-// ´Ë´úÂëÄ£¿éÖĞ°üº¬µÄº¯ÊıµÄÇ°ÏòÉùÃ÷: 
+// æ­¤ä»£ç æ¨¡å—ä¸­åŒ…å«çš„å‡½æ•°çš„å‰å‘å£°æ˜: 
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -25,19 +25,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: ÔÚ´Ë·ÅÖÃ´úÂë¡£
+    // TODO: åœ¨æ­¤æ”¾ç½®ä»£ç ã€‚
 
-    // ³õÊ¼»¯È«¾Ö×Ö·û´®
+    // åˆå§‹åŒ–å…¨å±€å­—ç¬¦ä¸²
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_PICTURE, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
-    // Ö´ĞĞÓ¦ÓÃ³ÌĞò³õÊ¼»¯: 
+    // æ‰§è¡Œåº”ç”¨ç¨‹åºåˆå§‹åŒ–: 
     if (!InitInstance (hInstance, nCmdShow))
     {
         return FALSE;
     }
-	//Ìí¼Ó
+	//æ·»åŠ 
 	Init();
 	D3DInit();
 
@@ -49,93 +49,126 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	MSG msg = { 0 };
 
-    // Ö÷ÏûÏ¢Ñ­»·: 
+    // ä¸»æ¶ˆæ¯å¾ªç¯: 
+	fpscount = 0;
 	while (msg.message != WM_QUIT)
 	{
 		//
-		//ÔÚ·¢²¼ÏûÏ¢Ç°×öµÄ¶¯×÷
+		//åœ¨å‘å¸ƒæ¶ˆæ¯å‰åšçš„åŠ¨ä½œ
 		//
-		//¸üĞÂÊó±ê×ø±ê,ÔÚ·¢²¼ÏûÏ¢Ç°¸üĞÂÊó±êÎ»ÖÃ£¬·ÀÖ¹ÏûÏ¢´¦Àíº¯ÊıÖĞÊı¾İ´íÎó
+		//æ›´æ–°é¼ æ ‡åæ ‡,åœ¨å‘å¸ƒæ¶ˆæ¯å‰æ›´æ–°é¼ æ ‡ä½ç½®ï¼Œé˜²æ­¢æ¶ˆæ¯å¤„ç†å‡½æ•°ä¸­æ•°æ®é”™è¯¯
 		lastcursor = cursor;
 		GetCursorPos(&cursor);
-		GetCurPos();//µÃµ½Êó±êÎ»ÖÃ£¨ÖÖÀà£©,²»·ÅÔÚonmousemoveÖĞÒòÎªÕâÊÇÈ«ÆÁ·¶Î§µÄÊó±êĞÅÏ¢¡£
+		GetCurPos();//å¾—åˆ°é¼ æ ‡ä½ç½®ï¼ˆç§ç±»ï¼‰,ä¸æ”¾åœ¨onmousemoveä¸­å› ä¸ºè¿™æ˜¯å…¨å±èŒƒå›´çš„é¼ æ ‡ä¿¡æ¯ã€‚
+		//GetCurInfo();
 
+		//æ¶ˆæ¯
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 
-
 		if (IsIconic(mainwnd))
 		{
-			Sleep(10);//×îĞ¡»¯×´Ì¬½µµÍ×ÊÔ´ÏûºÄ
+			Sleep(ICONIC_SLEEP);//æœ€å°åŒ–çŠ¶æ€é™ä½èµ„æºæ¶ˆè€—
 			continue;
 		}
 
 		//
-		//·¢²¼ÏûÏ¢ºóÒª×öµÄ¶¯×÷
+		//å‘å¸ƒæ¶ˆæ¯åè¦åšçš„åŠ¨ä½œ
 		//
-		DelayFlag();//¸üĞÂÑÓ³ÙµÄ±êÖ¾
+
+		//sizeç»“æŸåŠ¨ä½œ
 		//bool oldsize = onsize;
-		//if (oldsize && !onsize)//size½áÊø¶¯×÷
+		//if (oldsize && !onsize)
 		//{
 		//	Get2WndRect();
 		//	if (maindevice)
 		//	{
-		//		ResetDevice();//´¦ÀíÉè±¸¶ªÊ§
+		//		ResetDevice();//å¤„ç†è®¾å¤‡ä¸¢å¤±
 		//	}
 		//	if (!mainbmp.Empty())
-		//		RefreshSurf();//²»ÖØĞÂ´´½¨Í¼Æ¬¿ÉÄÜÏÔÊ¾´íÎó
-		//}
-		//SetCursor();//ÉèÖÃÊó±êÑùÊ½
-		//ÍÏ¶¯Ê±»òÊó±ê¾²Ö¹Ê±²»»ñÈ¡ÆÁÄ»ÑÕÉ«
-		//if (!ondrag && !onzoom)
-		//{
-		//	HDC pdc = ::GetDC(NULL);
-		//	screencolor = GetPixel(pdc, cursor.x, cursor.y);
-		//	DeleteDC(pdc);
-		//	//µÍ1£¬3×Ö½Ú»¥»»
-		//	DWORD low = screencolor & 0xFF;
-		//	DWORD mid = screencolor & 0xFF00;
-		//	DWORD high = screencolor & 0xFF0000;
-		//	DWORD top = screencolor & 0xFF000000;
-		//	screencolor = top + mid + (low << 16) + (high >> 16);
+		//		RefreshSurf();//ä¸é‡æ–°åˆ›å»ºå›¾ç‰‡å¯èƒ½æ˜¾ç¤ºé”™è¯¯
 		//}
 
-		//¼ÆÊı
+		//è®¡æ•°
 		loopcount++;
 		time(&nowtime);
 
-		//äÖÈ¾
-		Render();
+		DelayFlag();//æ›´æ–°å»¶è¿Ÿçš„æ ‡å¿—
 
-		//½µµÍ×ÊÔ´ÏûºÄ
-		QueryPerformanceCounter(&etime);
-		float testfps;
-		if (etime.QuadPart != stime.QuadPart)
-			testfps = (float)frequency.QuadPart / (etime.QuadPart - stime.QuadPart);
-		if (ondrag || onzoom)
+		//æ‹–åŠ¨æ—¶æˆ–ç¼©æ”¾ä¸è·å–å±å¹•é¢œè‰²
+		if (screencoloron)
 		{
-			if (testfps > NORMAL_FPS)
-				Sleep((UINT32)(1000.0f / NORMAL_FPS - 1000.0f / testfps));
-		}
-		else
-		{
-			if (testfps > MIN_FPS)
-				Sleep((UINT32)max(1000.0f / MIN_FPS - 1000.0f / testfps, 1));
+			if (!dragging && !onzoom)
+			{
+				HDC pdc = ::GetDC(NULL);
+				screencolor = GetPixel(pdc, cursor.x, cursor.y);
+				DeleteDC(pdc);
+				//ä½1ï¼Œ3å­—èŠ‚äº’æ¢
+				DWORD low = screencolor & 0xFF;
+				DWORD mid = screencolor & 0xFF00;
+				DWORD high = screencolor & 0xFF0000;
+				DWORD top = screencolor & 0xFF000000;
+				screencolor = top + mid + (low << 16) + (high >> 16);
+			}
 		}
 
-		//¼ÆËãfps
-		QueryPerformanceCounter(&etime);
-		if (nowtime != lasttime)//Ã¿ÃëÖ´ĞĞ
+		//é™ä½èµ„æºæ¶ˆè€—ï¼ŒåŠ å…¥è‡ªå­¦ä¹ ï¼ŒåŠ¨æ€è°ƒæ•´èµ„æºæ¶ˆè€—ç­–ç•¥ï¼Œå› ä¸ºcpuæ€»èµ„æºæœªçŸ¥ï¼Œå¯èƒ½å¯¼è‡´fpsä¸ç¨³å®š
+		//åœ¨ä¸»å¾ªç¯ä¸»è¦ä»»åŠ¡ï¼ˆRenderï¼‰ä¹‹ååšä¼šé€ æˆçª—å£å“åº”æ…¢
+		//ä¹‹å‰åšç”¨Sleep(1)+continueä»£æ›¿Sleep(n),å¹¶æŠŠæ¸²æŸ“ç§»åˆ°å¼€å§‹è®¡æ—¶ä¹‹å
+		if (fpslimit)
 		{
+			QueryPerformanceCounter(&etime);
+			float testfps;
+			if (etime.QuadPart != stime.QuadPart)
+				testfps = (float)frequency.QuadPart / (etime.QuadPart - stime.QuadPart);
+			if (ondrag || onzoom)//å›¾ç‰‡éœ€å¿«é€Ÿæ›´æ–°
+			{
+				if (testfps > NORMAL_FPS)
+				{
+					Sleep(1);
+					continue;
+					//Sleep((UINT32)(1000.0f / NORMAL_FPS - 1000.0f / testfps));
+				}
+			}
+			else
+			{
+				if (testfps > MIN_FPS)
+				{
+					Sleep(1);
+					continue;
+					//Sleep((UINT32)max(1000.0f / MIN_FPS - 1000.0f / testfps, 1));
+				}
+			}
+		}
+
+		//è®¡ç®—fps
+		QueryPerformanceCounter(&etime);
+		if (nowtime != lasttime)//æ¯ç§’æ‰§è¡Œ
+		{
+			fpscount++;
+
 			fps = (float)frequency.QuadPart / (etime.QuadPart - stime.QuadPart);
-			lasttime = nowtime;
+			if (avgfps < 0)
+				avgfps = fps;
+			else
+				avgfps = avgfps*0.9f + fps*0.1f;
+			if (cvgfps < 0)
+				cvgfps = fps;
+			else
+				cvgfps = cvgfps*fpscount / (fpscount + 1) + fps / (fpscount + 1);
+			showfps = fps;
+			showavgfps = avgfps;
 		}
-
-		stime = etime;//¿ªÊ¼¼ÆÊ±
+		lasttime = nowtime;
+		//å¼€å§‹è®¡æ—¶
+		//stime = etime;
 		QueryPerformanceCounter(&stime);
+
+		//æ¸²æŸ“
+		Render();
     }
     return (int) msg.wParam;
 }
@@ -143,9 +176,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 //
-//  º¯Êı: MyRegisterClass()
+//  å‡½æ•°: MyRegisterClass()
 //
-//  Ä¿µÄ: ×¢²á´°¿ÚÀà¡£
+//  ç›®çš„: æ³¨å†Œçª—å£ç±»ã€‚
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
@@ -153,7 +186,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
+    wcex.style          = CS_HREDRAW | CS_VREDRAW | CS_DROPSHADOW;
     wcex.lpfnWndProc    = WndProc;
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = 0;
@@ -169,18 +202,18 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 }
 
 //
-//   º¯Êı: InitInstance(HINSTANCE, int)
+//   å‡½æ•°: InitInstance(HINSTANCE, int)
 //
-//   Ä¿µÄ: ±£´æÊµÀı¾ä±ú²¢´´½¨Ö÷´°¿Ú
+//   ç›®çš„: ä¿å­˜å®ä¾‹å¥æŸ„å¹¶åˆ›å»ºä¸»çª—å£
 //
-//   ×¢ÊÍ: 
+//   æ³¨é‡Š: 
 //
-//        ÔÚ´Ëº¯ÊıÖĞ£¬ÎÒÃÇÔÚÈ«¾Ö±äÁ¿ÖĞ±£´æÊµÀı¾ä±ú²¢
-//        ´´½¨ºÍÏÔÊ¾Ö÷³ÌĞò´°¿Ú¡£
+//        åœ¨æ­¤å‡½æ•°ä¸­ï¼Œæˆ‘ä»¬åœ¨å…¨å±€å˜é‡ä¸­ä¿å­˜å®ä¾‹å¥æŸ„å¹¶
+//        åˆ›å»ºå’Œæ˜¾ç¤ºä¸»ç¨‹åºçª—å£ã€‚
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // ½«ÊµÀı¾ä±ú´æ´¢ÔÚÈ«¾Ö±äÁ¿ÖĞ
+   hInst = hInstance; // å°†å®ä¾‹å¥æŸ„å­˜å‚¨åœ¨å…¨å±€å˜é‡ä¸­
 
    HWND hWnd = CreateWindowExW(WS_EX_ACCEPTFILES, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, 800, 520, nullptr, nullptr, hInstance, nullptr);
@@ -189,7 +222,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
-   mainwnd = hWnd;//´æ´¢Ö÷´°¿Ú¾ä±ú
+   mainwnd = hWnd;//å­˜å‚¨ä¸»çª—å£å¥æŸ„
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
@@ -198,33 +231,33 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 //
-//  º¯Êı: WndProc(HWND, UINT, WPARAM, LPARAM)
+//  å‡½æ•°: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
-//  Ä¿µÄ:    ´¦ÀíÖ÷´°¿ÚµÄÏûÏ¢¡£
+//  ç›®çš„:    å¤„ç†ä¸»çª—å£çš„æ¶ˆæ¯ã€‚
 //
-//  WM_COMMAND  - ´¦ÀíÓ¦ÓÃ³ÌĞò²Ëµ¥
-//  WM_PAINT    - »æÖÆÖ÷´°¿Ú
-//  WM_DESTROY  - ·¢ËÍÍË³öÏûÏ¢²¢·µ»Ø
+//  WM_COMMAND  - å¤„ç†åº”ç”¨ç¨‹åºèœå•
+//  WM_PAINT    - ç»˜åˆ¶ä¸»çª—å£
+//  WM_DESTROY  - å‘é€é€€å‡ºæ¶ˆæ¯å¹¶è¿”å›
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	//
-	//surfsrc¸Ä±ä£¬Ò»¶¨ÒªÖØĞÂÉú³Ésurface¡£½ö´°¿Ú³ß´ç¸Ä±ä£¬²»ĞèÒªÖØĞÂÉú³É£¬µ«Òª¸üĞÂ´°¿ÚĞÅÏ¢Get2WndRect()
-	//Zoom()ÖĞÒÑ°üº¬ÖØĞÂÉú³Ésurface
+	//surfsrcæ”¹å˜ï¼Œä¸€å®šè¦é‡æ–°ç”Ÿæˆsurfaceã€‚ä»…çª—å£å°ºå¯¸æ”¹å˜ï¼Œä¸éœ€è¦é‡æ–°ç”Ÿæˆï¼Œä½†è¦æ›´æ–°çª—å£ä¿¡æ¯Get2WndRect()
+	//Zoom()ä¸­å·²åŒ…å«é‡æ–°ç”Ÿæˆsurface
 	//
 	//
 
 	char key;
 	UINT uFileNum;
-//	D3DSURFACE_DESC surfDesc;
 
+	NCCALCSIZE_PARAMS *pnccsp;
     switch (message)
     {
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
-            // ·ÖÎö²Ëµ¥Ñ¡Ôñ: 
+            // åˆ†æèœå•é€‰æ‹©: 
             switch (wmId)
             {
             case IDM_ABOUT:
@@ -235,26 +268,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 			case IDM_OPEN:
 				OPENFILENAME opfn;
-				WCHAR openfilename[MAX_PATH];//´æ·ÅÎÄ¼şÃû  
+				WCHAR openfilename[MAX_PATH];//å­˜æ”¾æ–‡ä»¶å  
 
-				//³õÊ¼»¯     
+				//åˆå§‹åŒ–     
 				ZeroMemory(&opfn, sizeof(OPENFILENAME));
-				opfn.lStructSize = sizeof(OPENFILENAME);//½á¹¹Ìå´óĞ¡
-				//ÉèÖÃ¹ıÂË     
-				opfn.lpstrFilter = L"ËùÓĞÎÄ¼ş\0*.*\0bmpÎÄ¼ş\0*.bmp\0pngÎÄ¼ş\0*.png\0jpgÎÄ¼ş\0*.jpg\0";
-				//Ä¬ÈÏ¹ıÂËÆ÷Ë÷ÒıÉèÎª1     
+				opfn.lStructSize = sizeof(OPENFILENAME);//ç»“æ„ä½“å¤§å°
+				//è®¾ç½®è¿‡æ»¤     
+				opfn.lpstrFilter = L"æ‰€æœ‰æ–‡ä»¶\0*.*\0bmpæ–‡ä»¶\0*.bmp\0pngæ–‡ä»¶\0*.png\0jpgæ–‡ä»¶\0*.jpg\0";
+				//é»˜è®¤è¿‡æ»¤å™¨ç´¢å¼•è®¾ä¸º1     
 				opfn.nFilterIndex = 1;
-				//ÎÄ¼şÃûµÄ×Ö¶Î±ØĞëÏÈ°ÑµÚÒ»¸ö×Ö·ûÉèÎª\0
+				//æ–‡ä»¶åçš„å­—æ®µå¿…é¡»å…ˆæŠŠç¬¬ä¸€ä¸ªå­—ç¬¦è®¾ä¸º\0
 				opfn.lpstrFile = openfilename;
 				opfn.lpstrFile[0] = '\0';
 				opfn.nMaxFile = sizeof(openfilename);
-				//ÉèÖÃ±êÖ¾Î»£¬¼ì²éÄ¿Â¼»òÎÄ¼şÊÇ·ñ´æÔÚ     
+				//è®¾ç½®æ ‡å¿—ä½ï¼Œæ£€æŸ¥ç›®å½•æˆ–æ–‡ä»¶æ˜¯å¦å­˜åœ¨     
 				opfn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 				//opfn.lpstrInitialDir = NULL;     
-				// ÏÔÊ¾¶Ô»°¿òÈÃÓÃ»§Ñ¡ÔñÎÄ¼ş     
+				// æ˜¾ç¤ºå¯¹è¯æ¡†è®©ç”¨æˆ·é€‰æ‹©æ–‡ä»¶     
 				if (GetOpenFileName(&opfn))
 				{
-					//Ñ¡ÖĞÎÄ¼şºó²Ù×÷
+					//é€‰ä¸­æ–‡ä»¶åæ“ä½œ
 					//SendMessage(mainwnd, WM_SETTEXT, NULL, (LPARAM)openfilename);
 					OnDropFile(openfilename);
 				}
@@ -271,11 +304,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
 			if (!IsIconic(mainwnd))
 			{
-				PAINTSTRUCT ps;
-				HDC hdc = BeginPaint(hWnd, &ps);
-				// TODO: ÔÚ´Ë´¦Ìí¼ÓÊ¹ÓÃ hdc µÄÈÎºÎ»æÍ¼´úÂë...
+				//PAINTSTRUCT ps;
+				//HDC hdc = BeginPaint(hWnd, &ps);
+				// TODO: åœ¨æ­¤å¤„æ·»åŠ ä½¿ç”¨ hdc çš„ä»»ä½•ç»˜å›¾ä»£ç ...
 				Render();
-				EndPaint(hWnd, &ps);
+				//EndPaint(hWnd, &ps);
 			}
 			else
 			{
@@ -288,7 +321,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 	case WM_DROPFILES:
 		uFileNum = ::DragQueryFile((HDROP)wParam, 0xffffffff, NULL, 0);
-		::DragQueryFileW((HDROP)wParam, 0, strFileName, MAX_PATH);//»ñÈ¡ÎÄ¼şÃû
+		::DragQueryFileW((HDROP)wParam, 0, strFileName, MAX_PATH);//è·å–æ–‡ä»¶å
 		OnDropFile(strFileName);
 		break;
 	case WM_SIZE:
@@ -297,22 +330,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			onsize = true;
 			sizetick = GetTickCount64();
 
-			GetCursorPos(&cursor);//sizeÊ±Ö÷Ñ­»·ÖĞ»ñÈ¡Êó±ê²»ÔËĞĞ
+			GetCursorPos(&cursor);//sizeæ—¶ä¸»å¾ªç¯ä¸­è·å–é¼ æ ‡ä¸è¿è¡Œ
 			int lastwrwidth = Widthof(clientrect);
 			int lastwrheight = Heightof(clientrect);
-			Get2WndRect();//¸üĞÂ´°¿ÚÇøÓò£¬Èç¹û¸ÄÎªsize½áÊø¶¯×÷Ê±×ö£¬TODO£ºÉèÖÃÁíÒ»´°¿ÚÇøÓòĞÅÏ¢ÊµÊ±¸üĞÂ
+			Get2WndRect();//æ›´æ–°çª—å£åŒºåŸŸï¼Œå¦‚æœæ”¹ä¸ºsizeç»“æŸåŠ¨ä½œæ—¶åšï¼ŒTODOï¼šè®¾ç½®å¦ä¸€çª—å£åŒºåŸŸä¿¡æ¯å®æ—¶æ›´æ–°
 
 			if (maindevice)
 			{
-				ResetDevice();//´¦ÀíÉè±¸¶ªÊ§
+				ResetDevice();//å¤„ç†è®¾å¤‡ä¸¢å¤±
 			}
+			SetRoundWnd();
 
-			//!!!surface¿½±´µ½backbufferÖĞ×÷ÁËµ÷Õû£¬¿ÉÒÔ²»ÖØÉèsurface£¬ÎŞÂÛµ±Ç°clipÊÇÊ²Ã´×´Ì¬
-			//ÓĞÍ¼Æ¬Ê±£¬ÉèÖÃclip²¢ÇÒ´°¿ÚÔÚÀ©´ó£¬ÔòÖØĞÂÉú³Ésurface
+			//!!!surfaceæ‹·è´åˆ°backbufferä¸­ä½œäº†è°ƒæ•´ï¼Œå¯ä»¥ä¸é‡è®¾surfaceï¼Œæ— è®ºå½“å‰clipæ˜¯ä»€ä¹ˆçŠ¶æ€
+			//æœ‰å›¾ç‰‡æ—¶ï¼Œè®¾ç½®clipå¹¶ä¸”çª—å£åœ¨æ‰©å¤§ï¼Œåˆ™é‡æ–°ç”Ÿæˆsurface
 			if (!mainbmp.Empty() 
 				&& clip 
 				&&(Widthof(clientrect)>= lastwrwidth|| Heightof(clientrect) >= lastwrheight))
-				RefreshSurf();
+				SurfRenew();
 			SurfStatusChange();
 		}
 		break;
@@ -321,9 +355,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		movetick = GetTickCount64();
 		if (!onsize)
 		{
-			Get2WndRect();//sizeÊ±²»×ö
-			Render();//sizeÊ±µÄmoveÏûÏ¢²»ÖØ»æ£¬ÔÚonpaintÖØ»æ
+			Get2WndRect();//sizeæ—¶ä¸åš
+			Render();//sizeæ—¶çš„moveæ¶ˆæ¯ä¸é‡ç»˜ï¼Œåœ¨onpainté‡ç»˜
 		}
+		
 		break;
 	case WM_KEYDOWN:
 		key = wParam;
@@ -331,69 +366,80 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			switch (key)
 			{
-			case 'B'://Ëõ·ÅÂÊÇĞ»Ø1
+			case 'B'://ç¼©æ”¾ç‡åˆ‡å›1
 				realzoom = zoom = 1;
-				Zoom(oldzoom, zoom);
+				SurfZoom(oldzoom, zoom, cursor);
 				oldzoom = zoom;
 
 				SurfStatusChange();
 				break;
-			case 'C'://´°¿Úµ÷Õûµ½ÕıºÃ°üÀ¨Í¼Ïñ
+			case 'C'://çª—å£è°ƒæ•´åˆ°æ­£å¥½åŒ…æ‹¬å›¾åƒ
 				if (!mainbmp.Empty())
 				{
 					wndrect.right = wndrect.left + zoomw + wbias;
 					wndrect.bottom = wndrect.top + zoomh + hbias;
 
-					//movewindow·¢³öwmsizeÏûÏ¢£¬Ğè×îºó×ö
+					//movewindowå‘å‡ºwmsizeæ¶ˆæ¯ï¼Œéœ€æœ€ååš
 					MoveWindow(mainwnd, wndrect.left, wndrect.top
 						, wndrect.right - wndrect.left
 						, wndrect.bottom - wndrect.top, TRUE);
 					Get2WndRect();
+					SetRoundWnd();
 
 					surfsrc = { 0, 0 };
 
-					RefreshSurf();
+					SurfRenew();
 
 					SurfStatusChange();
 				}
 				break;
-			case 'E'://ÇĞ»»ĞÅÏ¢ÏÔÊ¾
+			case 'E'://åˆ‡æ¢ä¿¡æ¯æ˜¾ç¤º
 				infoshow = !infoshow;
 				break;
-			case 'F'://¸ù¾İ£¬ÉèÖÃ±ê×¼´°¿Ú³ß´ç
+			case 'F'://è®¾ç½®æ ‡å‡†çª—å£å°ºå¯¸
 				if (!mainbmp.Empty())
 				{
 					FitWnd();
 					Get2WndRect();
+					SetRoundWnd();
 
 					surfsrc = { 0,0 };
 
-					RefreshSurf();
+					SurfRenew();
 
 					SurfStatusChange();
 				}
 				break;
-			case 'M'://Í¼Æ¬¾ÓÖĞ
+			case 'M'://å›¾ç‰‡å±…ä¸­
 				if (!mainbmp.Empty())
 				{
 					CenterPic();
 
-					RefreshSurf();
+					SurfRenew();
 
 					SurfStatusChange();
 				}
 				break;
-			case 'P'://Çå³ıÍ¼Ïñ
+			case 'P'://æ¸…é™¤å›¾åƒ
 				Clear();
 				break;
-			case 'Q'://Í¼Ïñ·Å»Ø×óÉÏ½Ç
+			case 'Q'://å›¾åƒæ”¾å›å·¦ä¸Šè§’
 				surfsrc = { 0,0 };
-				RefreshSurf();
+				SurfRenew();
 
 				SurfStatusChange();
 				break;
-			case 'R'://ÊÖ¶¯äÖÈ¾Ò»´Î
+			case 'R'://æ‰‹åŠ¨æ¸²æŸ“ä¸€æ¬¡
 				Render();
+				break;
+			case 'S'://æ‰‹åŠ¨é‡æ–°ç”Ÿæˆsurfaceä¸€æ¬¡
+				SurfRenew();
+
+				SurfStatusChange();
+				break;
+			case 'X':
+				fpscount = 0;
+				cvgfps = -1;
 				break;
 			}
 		}
@@ -405,8 +451,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEWHEEL:
 		if (!mainbmp.Empty())
 		{
-			Togglezoom(wParam);//ĞŞ¸Äzoom
-			Zoom(oldzoom, realzoom);//·Å´ó£¬µ÷ÕûsurfaceÎ»ÖÃ
+			SurfAdjustZoom(wParam);//ä¿®æ”¹zoom
+			SurfZoom(oldzoom, realzoom, cursor);//æ”¾å¤§ï¼Œè°ƒæ•´surfaceä½ç½®
 			oldzoom = realzoom;
 
 			SurfStatusChange();
@@ -415,81 +461,91 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_SETCURSOR:
 		//GetCursorPos(&cursor);
-		if (inside(cursor, clientrect))
-		{
-			if(NoPic())
-				SetCursor(LoadCursor(NULL, IDC_ARROW));
-			else
-				SetCursor(LoadCursor(NULL, IDC_ARROW));//¿ÉÉèÖÃÆäËûÊó±ê
-		}
-		else
-			SetCursor(LoadCursor(NULL, IDC_ARROW));
+		SetCursor();//è®¾ç½®é¼ æ ‡æ ·å¼
 
 		break;
 	case WM_LBUTTONDOWN:
 		if (!mainbmp.Empty())
 		{
-			SetCapture(mainwnd);
-			//GetCursorPos(&lastpos);
-			lastpos = cursor;
-			ondrag = true;
-			break;
+			BeginDragListen();
 		}
+
+		if (sizeEnable && winmode == WINMODE_ROUND)
+		{
+			if (mousestate != 0)
+			{
+				EndDragListen();//ç»“æŸæ‹–åŠ¨å›¾ç‰‡æ‰èƒ½æ§åˆ¶çª—å£
+				PostMessage(mainwnd, WM_NCLBUTTONDOWN, mousestate, 0);
+			}
+		}
+		break;
+	case WM_RBUTTONDOWN:
+		if (easymoveEnable && winmode == WINMODE_ROUND)
+		{
+			PostMessage(mainwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+		}
+		break;
 	case WM_MOUSEMOVE:
 		if (ondrag)
 		{
-			//ÒÆ¶¯Í¼Æ¬
-			surfsrc.x -= cursor.x - lastpos.x;
-			surfsrc.y -= cursor.y - lastpos.y;
+			dragging = true;
+			dragtick = GetTickCount64();
 
-			//¼ÇÂ¼Êó±êÎ»ÖÃ
+			//ç§»åŠ¨å›¾ç‰‡
+			SurfMove(cursor.x - lastcursor.x, cursor.y - lastcursor.y);
+
+			//è®°å½•é¼ æ ‡ä½ç½®
 			lastpos = cursor;
 
 			bool lastpicclipped = picclipped;
 
-			//ÒÆ¶¯Ê±Èç¹ûÓĞclip±êÖ¾£¬²¢ÇÒÍ¼Æ¬Ğ¡ÓÚÒ»¶¨³ß´ç£¬ÔòÈ¡Ïûclip£¬ÖØĞÂÉú³Ésurface£¬Ôö¼ÓÍÏ¶¯ËÙ¶È
-			//£¨ÓÈÆä¶ÔÓÚzoom<1µÄÇé¿ö£©
+			//ç§»åŠ¨æ—¶å¦‚æœæœ‰clipæ ‡å¿—ï¼Œå¹¶ä¸”å›¾ç‰‡å°äºä¸€å®šå°ºå¯¸ï¼Œåˆ™å–æ¶ˆclipï¼Œé‡æ–°ç”Ÿæˆsurfaceï¼Œå¢åŠ æ‹–åŠ¨é€Ÿåº¦
+			//ï¼ˆå°¤å…¶å¯¹äºzoom<1çš„æƒ…å†µï¼‰
 			if (zoomw <= MAX_FORCECLIP_WIDTH_DRAG && zoomh <= MAX_FORCECLIP_HEIGHT_DRAG && clip)
 			{
 				clip = false;
-				RefreshSurf();
+				SurfRenew();
 			}
 
-			//Èç¹ûÍ¼Æ¬Ê¼ÖÕÈ«²¿ÔÚ´°¿Ú¿Í»§Çø·¶Î§ÄÚ£¨Ç°ºósurfclipped×´Ì¬¶¼ÊÇ0£©£¬»òÕß²»ÉèÖÃclip±êÖ¾£¬¾Í²»¸üĞÂ
+			//å¦‚æœå›¾ç‰‡å§‹ç»ˆå…¨éƒ¨åœ¨çª—å£å®¢æˆ·åŒºèŒƒå›´å†…ï¼ˆå‰åsurfclippedçŠ¶æ€éƒ½æ˜¯0ï¼‰ï¼Œæˆ–è€…ä¸è®¾ç½®clipæ ‡å¿—ï¼Œå°±ä¸æ›´æ–°
 			if ((lastpicclipped || picclipped) && clip)
-				RefreshSurf();
+				SurfRenew();
 
-			CalcClipped();//¼ÆËãÍ¼Æ¬clip×´Ì¬
-
-			CalcSurfMapInfo();//¸üĞÂsurface¿½±´µ½backbuffer²ÎÊı
+			SurfStatusChange();
 		}
 		else
 		{
 			//GetCursorPos(&cursor);
-			GetCurInfo();//²»·ÅÔÚÖ÷Ñ­»·Àï,·ÀÖ¹ÍÏ¶¯Í¼ÏñÊ±Êó±êµ±Ç°ËùÔÚÏñËØÖµ¶¶¶¯
+			GetCurInfo();//ä¸æ”¾åœ¨ä¸»å¾ªç¯é‡Œ,é˜²æ­¢æ‹–åŠ¨å›¾åƒæ—¶é¼ æ ‡å½“å‰æ‰€åœ¨åƒç´ å€¼æŠ–åŠ¨
 		}
 		break;
 	case WM_LBUTTONUP:
-		ReleaseCapture();
-		ondrag = false;
+		EndDragListen();
 		break;
 	case WM_ACTIVATE:
 		if (wParam == WA_INACTIVE)
 		{
-			//Ê§È¥½¹µã£¬Çå³ı±êÖ¾
+			//å¤±å»ç„¦ç‚¹ï¼Œæ¸…é™¤æ ‡å¿—
 			ClearFlag();
 		}
 		break;
 	case WM_ERASEBKGND:
-		//²»²ÉÈ¡¶¯×÷£¬·ÀÖ¹ÖØ»æÊ±ÉÁË¸
+		//ä¸é‡‡å–åŠ¨ä½œï¼Œé˜²æ­¢é‡ç»˜æ—¶é—ªçƒ
 		break;
+	/*case WM_NCCALCSIZE:
+		Get2WndRect();
+		pnccsp = (NCCALCSIZE_PARAMS*)lParam;
+		pnccsp->rgrc[0].top = wndrect.top + 8;
+		pnccsp->rgrc[0].bottom = pnccsp->rgrc[0].top + Heightof(wndrect)-16;
+	case WM_NCPAINT:
+		break;*/
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
 
-// ¡°¹ØÓÚ¡±¿òµÄÏûÏ¢´¦Àí³ÌĞò¡£
+// â€œå…³äºâ€æ¡†çš„æ¶ˆæ¯å¤„ç†ç¨‹åºã€‚
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
@@ -513,31 +569,29 @@ short GetSizeType(CPoint point)
 {
 	short sizetype = 0;
 
-	if (point.x <= wndrect.left + SIZE_NEAR_PIXEL && point.x >= wndrect.left - SIZE_NEAR_PIXEL
-		&& point.y <= wndrect.top + SIZE_NEAR_PIXEL && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
+	if (point.x <= clientrect.left + SIZE_NEAR_PIXEL && point.x >= clientrect.left - SIZE_NEAR_PIXEL
+		&& point.y <= wndrect.top + 12 && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
 		sizetype = HTTOPLEFT;
-	else if (point.x <= wndrect.right + SIZE_NEAR_PIXEL && point.x >= wndrect.right - SIZE_NEAR_PIXEL
-		&& point.y <= wndrect.bottom + SIZE_NEAR_PIXEL && point.y >= wndrect.bottom - SIZE_NEAR_PIXEL)
+	else if (point.x <= clientrect.right + SIZE_NEAR_PIXEL && point.x >= clientrect.right - SIZE_NEAR_PIXEL
+		&& point.y <= clientrect.bottom + SIZE_NEAR_PIXEL && point.y >= clientrect.bottom - SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOMRIGHT;
-	else if (point.x <= wndrect.right + SIZE_NEAR_PIXEL && point.x >= wndrect.right - SIZE_NEAR_PIXEL
-		&& point.y <= wndrect.top + SIZE_NEAR_PIXEL && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
+	else if (point.x <= clientrect.right + SIZE_NEAR_PIXEL && point.x >= clientrect.right - SIZE_NEAR_PIXEL
+		&& point.y <= wndrect.top + 12 && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
 		sizetype = HTTOPRIGHT;
-	else if (point.x <= wndrect.left + SIZE_NEAR_PIXEL && point.x >= wndrect.left - SIZE_NEAR_PIXEL
-		&& point.y <= wndrect.bottom + SIZE_NEAR_PIXEL && point.y >= wndrect.bottom - SIZE_NEAR_PIXEL)
+	else if (point.x <= clientrect.left + SIZE_NEAR_PIXEL && point.x >= clientrect.left - SIZE_NEAR_PIXEL
+		&& point.y <= clientrect.bottom + SIZE_NEAR_PIXEL && point.y >= clientrect.bottom - SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOMLEFT;
-	else if (point.x <= wndrect.left + SIZE_NEAR_PIXEL && point.x >= wndrect.left - SIZE_NEAR_PIXEL)
+	else if (point.x <= clientrect.left + SIZE_NEAR_PIXEL && point.x >= clientrect.left - SIZE_NEAR_PIXEL)
 		sizetype = HTLEFT;
-	else if (point.x <= wndrect.right + SIZE_NEAR_PIXEL && point.x >= wndrect.right - SIZE_NEAR_PIXEL)
+	else if (point.x <= clientrect.right + SIZE_NEAR_PIXEL && point.x >= clientrect.right - SIZE_NEAR_PIXEL)
 		sizetype = HTRIGHT;
-	else if (point.y <= wndrect.top + SIZE_NEAR_PIXEL && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
+	else if (point.y <= wndrect.top + 12 && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
 		sizetype = HTTOP;
-	else if (point.y <= wndrect.bottom + SIZE_NEAR_PIXEL && point.y >= wndrect.bottom - SIZE_NEAR_PIXEL)
+	else if (point.y <= clientrect.bottom + SIZE_NEAR_PIXEL && point.y >= clientrect.bottom - SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOM;
-	else if (point.y <= wndrect.bottom + SIZE_NEAR_PIXEL && point.y >= wndrect.bottom - SIZE_NEAR_PIXEL)
-		sizetype = 0;
 	else
 	{
-		sizetype = 0;//µã»÷ÆäËûÇøÓòÒÆ¶¯´°¿Ú
+		sizetype = HTNOWHERE;
 	}
 
 	return sizetype;
@@ -575,10 +629,10 @@ inline void SetCursor()
 
 void Get2WndRect()
 {
-	GetClientRect(mainwnd, &clientrect);//µÃµ½clientÇøÓò³ß´ç
+	GetClientRect(mainwnd, &clientrect);//å¾—åˆ°clientåŒºåŸŸå°ºå¯¸
 	POINT clienttl = { 0, 0 };
-	ClientToScreen(mainwnd, &clienttl);//»ñµÃclientÇøÓò×óÉÏ½ÇµÄÆÁÄ»×ø±ê
-	//µÃµ½clientÕæÊµÆÁÄ»ÇøÓò
+	ClientToScreen(mainwnd, &clienttl);//è·å¾—clientåŒºåŸŸå·¦ä¸Šè§’çš„å±å¹•åæ ‡
+	//å¾—åˆ°clientçœŸå®å±å¹•åŒºåŸŸ
 	clientrect.left = clienttl.x;
 	clientrect.top = clienttl.y;
 	/*clientrect.right += clientrect.left;
@@ -586,44 +640,47 @@ void Get2WndRect()
 	clientrect.right += clienttl.x;
 	clientrect.bottom += clienttl.y;
 
-	GetWindowRect(mainwnd, &wndrect);//µÃµ½´°¿ÚÇøÓò
+	GetWindowRect(mainwnd, &wndrect);//å¾—åˆ°çª—å£åŒºåŸŸ
 	wbias = Widthof(wndrect) - Widthof(clientrect);
 	hbias = Heightof(wndrect) - Heightof(clientrect);
 
-	//¸üĞÂclientsize
+	//æ›´æ–°clientsize
 	clientsize = { Widthof(clientrect), Heightof(clientrect) };
 
-	//ĞŞ¸ÄÎÄ×ÖÏÔÊ¾ÇøÓò
+	//ä¿®æ”¹æ–‡å­—æ˜¾ç¤ºåŒºåŸŸ
 	textrect2.left = TEXTMARGIN_SIDE;
 	textrect2.right = textrect2.left + 600;
-	textrect2.bottom = clientrect.bottom - clientrect.top - TEXTMARGIN_BOTTOM;//µ×²¿×ó²à
+	textrect2.bottom = clientrect.bottom - clientrect.top - TEXTMARGIN_BOTTOM;//åº•éƒ¨å·¦ä¾§
 	textrect2.top = clientrect.bottom - clientrect.top - 16;
 }
 
 bool Init()
 {
-	//int gwl_style = -16;
-	//oldstyle = GetWindowLong(mainwnd, gwl_style);//-1946157056
-
-	//oldstyle = -1946157056;
-	////oldstyle = (oldstyle | WS_POPUP | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
-	////	& ~WS_CAPTION &~WS_BORDER&~WS_SYSMENU;
-	//SetWindowLong(mainwnd, gwl_style, oldstyle);
-	
 	Get2WndRect();
+	SetRoundWnd();
+
+	GetCursorPos(&cursor);
+	lastcursor = cursor;
 
 	wlimit = 800;
 	hlimit = 500;
 	backcolor = COLOR_BKG;
 	mode = MODE_PIC;
+	winmode = WINMODE_ROUND;
 	loopcount = 0;
 	ondrag = false;
+	dragging = false;
 	onzoom = false;
 	onsize = false;
 	onmove = false;
+	surffailed = true;
+	surfrefresh = false;
 	sizeEnable = true;
+	easymoveEnable = true;
 	flagshow = true;
 	infoshow = true;
+	fpslimit = false;
+	screencoloron = false;
 	clientsize = { Widthof(clientrect), Heightof(clientrect) };
 
 	QueryPerformanceFrequency(&frequency);
@@ -631,6 +688,8 @@ bool Init()
 	stime = { 0 };
 	lasttime = nowtime = 0;
 	fps = 0;
+	avgfps = -1;
+	cvgfps = -1;
 
 	maindevice = NULL;
 	mainsurf = NULL;
@@ -654,7 +713,8 @@ bool Init()
 	textrect.right = 400;
 	textrect.bottom = 600;
 
-
+	ALPHABLEND::InitAlphBlendTable(TRANSPARENTBACK_FILLDENSITY, TRANSPARENTBACK_HOLLOWDENSITY);
+	ALPHABLEND::InitAlphBlendTCube();
 
 	return true;
 }
@@ -663,7 +723,7 @@ bool D3DInit()
 {
 	HRESULT hr;
 
-	//Direct3D ½Ó¿Ú¶ÔÏó
+	//Direct3D æ¥å£å¯¹è±¡
 	lpD3D = Direct3DCreate9(D3D_SDK_VERSION);
 
 	//caps
@@ -680,17 +740,17 @@ bool D3DInit()
 	ZeroMemory(&d3dpp, sizeof(d3dpp));
 	d3dpp.BackBufferWidth = Widthof(clientrect);
 	d3dpp.BackBufferHeight = Heightof(clientrect);
-	d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;//¼ÓËÙ£¬displaymode.Format
+	d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;//åŠ é€Ÿï¼Œdisplaymode.Format
 	d3dpp.BackBufferCount = 2;
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	d3dpp.hDeviceWindow = mainwnd;
 	d3dpp.Windowed = TRUE;
-	d3dpp.EnableAutoDepthStencil = FALSE;//Éî¶È»º³å
-	d3dpp.AutoDepthStencilFormat = D3DFMT_D24S8;//¼ÓËÙÓÃD3DFMT_D24S8²»ÓÃD3DFMT_D16
-	d3dpp.Flags = 0;
+	d3dpp.EnableAutoDepthStencil = FALSE;//æ·±åº¦ç¼“å†²
+	d3dpp.AutoDepthStencilFormat = D3DFMT_D24S8;//åŠ é€Ÿç”¨D3DFMT_D24S8ä¸ç”¨D3DFMT_D16
+	d3dpp.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;//å…è®¸backbuffer lockrect
 	d3dpp.FullScreen_RefreshRateInHz = 0;
-	//¹Ø±Õ´¹Ö±Í¬²½,(¼«´óÔö¼ÓÖ¡ÂÊ£¬ÂÔÔö¼ÓÄÚ´æÕ¼ÓÃ£¬½Ï´óÔö¼ÓcpuÕ¼ÓÃÂÊ)
-	//ÔÚÖ÷Ñ­»·ÏŞÖÆÖ¡ÂÊÇé¿öÏÂ£¬¿ªÆôÄ¬ÈÏ´¹Ö±Í¬²½¿ÉÄÜÂÔÔö¼ÓcpuÕ¼ÓÃÂÊ
+	//å…³é—­å‚ç›´åŒæ­¥,(æå¤§å¢åŠ å¸§ç‡ï¼Œç•¥å¢åŠ å†…å­˜å ç”¨ï¼Œè¾ƒå¤§å¢åŠ cpuå ç”¨ç‡)
+	//åœ¨ä¸»å¾ªç¯é™åˆ¶å¸§ç‡æƒ…å†µä¸‹ï¼Œå¼€å¯é»˜è®¤å‚ç›´åŒæ­¥å¯èƒ½ç•¥å¢åŠ cpuå ç”¨ç‡
 	d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
 	d3dpp.MultiSampleType = D3DMULTISAMPLE_NONE;
 	d3dpp.MultiSampleQuality = 0;
@@ -704,10 +764,10 @@ bool D3DInit()
 
 	D3DXCreateFontW(
 		maindevice,
-		13, 5, 0, 1000, 0,			// ×ÖÌå×Ö·ûµÄ¿í¸ß¡¢ÊÇ·ñ¼Ó´Ö¡¢Mipmap¼¶±ğ¡¢ÊÇ·ñÎªĞ±Ìå	
-		DEFAULT_CHARSET,			// Ä¬ÈÏ×Ö·û¼¯
-		OUT_DEFAULT_PRECIS,			// Êä³ö¾«¶È£¬Ê¹ÓÃÄ¬ÈÏÖµ
-		CLEARTYPE_NATURAL_QUALITY,	// ÎÄ±¾ÖÊÁ¿NONANTIALIASED_QUALITY/CLEARTYPE_NATURAL_QUALITY
+		13, 5, 0, 1000, 0,			// å­—ä½“å­—ç¬¦çš„å®½é«˜ã€æ˜¯å¦åŠ ç²—ã€Mipmapçº§åˆ«ã€æ˜¯å¦ä¸ºæ–œä½“	
+		DEFAULT_CHARSET,			// é»˜è®¤å­—ç¬¦é›†
+		OUT_DEFAULT_PRECIS,			// è¾“å‡ºç²¾åº¦ï¼Œä½¿ç”¨é»˜è®¤å€¼
+		CLEARTYPE_NATURAL_QUALITY,	// æ–‡æœ¬è´¨é‡NONANTIALIASED_QUALITY/CLEARTYPE_NATURAL_QUALITY
 		DEFAULT_PITCH | FF_DONTCARE,
 		L"Arial Rounded MT Bold",	//Arial Rounded MT Bold
 		&font
@@ -717,7 +777,7 @@ bool D3DInit()
 		16, 7, 0, 1, 0,
 		DEFAULT_CHARSET,
 		OUT_DEFAULT_PRECIS,
-		NONANTIALIASED_QUALITY,//NONANTIALIASED_QUALITY, DEFAULT_QUALITY
+		CLEARTYPE_NATURAL_QUALITY,	//NONANTIALIASED_QUALITY, DEFAULT_QUALITY
 		DEFAULT_PITCH | FF_DONTCARE,
 		L"Calibri",
 		&font2
@@ -740,6 +800,8 @@ bool InitDevice()
 	}
 
 	maindevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	maindevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+	maindevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 
 	return true;
 }
@@ -752,28 +814,28 @@ bool OnDropFile(WCHAR file[])
 			return false;
 	}
 
-	//»ñÈ¡Í¼ÏñĞÅÏ¢
+	//è·å–å›¾åƒä¿¡æ¯
 	HRESULT hr;
 	ZeroMemory(&imginfo, sizeof(D3DXIMAGE_INFO));
 	D3DXGetImageInfoFromFile(file, &imginfo);
-	//»ñÈ¡ÆäÓàĞÅÏ¢
+	//è·å–å…¶ä½™ä¿¡æ¯
 	if (!imginfo0.GetFile(file))
 	{
 		MessageBox(mainwnd, L"info read failed", L"1", 0);
 		return false;
 	}
 
-	//Çå³ı·Ç¿Õ±íÃæ
+	//æ¸…é™¤éç©ºè¡¨é¢
 	if (tempsurf)
 		tempsurf->Release();
 	tempsurf = NULL;
-	//´´½¨ÓëÍ¼ÏñÆ¥Åä±íÃæ
+	//åˆ›å»ºä¸å›¾åƒåŒ¹é…è¡¨é¢
 	hr = maindevice->CreateOffscreenPlainSurface(
 		(LONG)imginfo.Width, (LONG)imginfo.Height, D3DFMT_A8R8G8B8
 		, D3DPOOL_SYSTEMMEM, &tempsurf, NULL);
 	if (FAILED(hr))
 		MessageBoxW(mainwnd, L"CreateOffscreenPlainSurface FAILED!", L"", 0);
-	//×°ÔØÍ¼Ïñ
+	//è£…è½½å›¾åƒ
 	hr = D3DXLoadSurfaceFromFileW(
 		tempsurf, NULL, NULL, file
 		, NULL, D3DX_FILTER_NONE, 0x00000000, NULL);
@@ -782,21 +844,21 @@ bool OnDropFile(WCHAR file[])
 		MessageBoxW(mainwnd, L"D3DXLoadSurfaceFromFileW FAILED!", L"", 0);
 		return false;
 	}
-	//´æÈëBMP
+	//å­˜å…¥BMP
 	mainbmp.Load(tempsurf);
 	zoomw = (int)(realzoom*mainbmp.width);
 	zoomh = (int)(realzoom*mainbmp.height);
-	//Çå³ısurface
+	//æ¸…é™¤surface
 	tempsurf->Release();
 	tempsurf = NULL;
 
-	//½«Í¼Æ¬¾ÓÖĞ
+	//å°†å›¾ç‰‡å±…ä¸­
 	CenterPic();
-	//µ¼ÈëÎªsurface
-	RefreshSurf();
-	//äÖÈ¾
+	//å¯¼å…¥ä¸ºsurface
+	SurfRenew();
+	//æ¸²æŸ“
 	Render();
-	//±£´æ£¨²âÊÔ£©
+	//ä¿å­˜ï¼ˆæµ‹è¯•ï¼‰
 	//D3DXSaveSurfaceToFile(L"E:\\1.bmp", D3DXIFF_BMP, mainsurf, NULL, NULL);
 
 	//piclist[0].Read(maindevice, file);
@@ -826,26 +888,74 @@ inline void DelayFlag()
 
 	if (onzoom)
 	{
-		if (nowtick < zoomtick || nowtick - zoomtick>ZOOMFLAG_DELAY)
+		if (nowtick < zoomtick || nowtick - zoomtick>FLAGDELAY_ZOOM)
 			onzoom = false;
 	}
 	if (onsize)
 	{
-		if (nowtick < sizetick || nowtick - sizetick>SIZEFLAG_DELAY)
+		if (nowtick < sizetick || nowtick - sizetick>FLAGDELAY_SIZE)
 			onsize = false;
 	}
 	if (onmove)
 	{
-		if (nowtick < movetick || nowtick - movetick>MOVEFLAG_DELAY)
+		if (nowtick < movetick || nowtick - movetick>FLAGDELAY_MOVE)
 			onmove = false;
+	}
+	if (surfrefresh)
+	{
+		if (nowtick < surfrefreshtick || nowtick - surfrefreshtick>FLAGDELAY_SURFREFRESH)
+			surfrefresh = false;
+	}
+	if (dragging)
+	{
+		if (nowtick < dragtick || nowtick - dragtick>FLAGDELAY_DRAG)
+			surfrefresh = false;
 	}
 }
 
 inline void ClearFlag()
 {
-	ondrag = false;
+	if (ondrag)
+	{
+		ondrag = false;
+		ReleaseCapture();
+	}
+	dragging = false;
 	onzoom = false;
 	onsize = false;
+	surfrefreshtick = false;
+}
+
+void SetRoundWnd()
+{
+	//è®¾ç½®çŸ©å½¢åŒºåŸŸ
+	HRGN hrgn;
+
+	RECT rgnrect;
+	rgnrect.left = clientrect.left - wndrect.left;
+	rgnrect.top = 8;
+	rgnrect.right = Widthof(wndrect) - rgnrect.left + 1/*Widthof(clientrect) + 9*/;
+	rgnrect.bottom = Heightof(wndrect) - rgnrect.top + 1/*Heightof(clientrect) + 22*/;
+	hrgn = CreateRoundRectRgn(rgnrect.left, rgnrect.top
+		, rgnrect.right, rgnrect.bottom, 2, 2);//å°ºå¯¸ï¼Œè¦+1
+	SetWindowRgn(mainwnd, hrgn, TRUE);
+
+	DeleteObject(hrgn);
+}
+
+void BeginDragListen()
+{
+	SetCapture(mainwnd);//å…è®¸é¼ æ ‡åœ¨çª—å£å¤–æ‹–åŠ¨
+	//GetCursorPos(&lastpos);
+	lastpos = cursor;
+	ondrag = true;
+}
+
+void EndDragListen()
+{
+	ReleaseCapture();
+	ondrag = false;
+	dragging = false;
 }
 
 bool FitWnd()
@@ -869,123 +979,125 @@ bool InfoRender()
 {
 	WCHAR subinfo[200] = { 0 };
 
-	//ÏÔÊ¾×´Ì¬
-	if(mainbmp.Empty())
-		swprintf_s(infowstr, _T("pic: FALSE"));
-	else
-	{
-		if(outsideclient)
-			swprintf_s(infowstr, _T("pic: TRUE (OUTSIDE SCREEN£¡)"));
-		else
-			swprintf_s(infowstr, _T("pic: TRUE"));
+	swprintf_s(infowstr, _T(""));
 
-		if (/*!mainbmp.Empty() && */!mainsurf)//mainbmp´æÔÚµ«surface²»´æÔÚ
-		{
-			wcscat_s(infowstr, L"  ");
-			swprintf_s(subinfo, _T("SURFACE FAILED!"));
-			wcscat_s(infowstr, subinfo);
-		}
-	}
-	wcscat_s(infowstr, L"\n");
+	//æ˜¾ç¤ºçŠ¶æ€
+	//if(mainbmp.Empty())
+	//	swprintf_s(infowstr, _T("pic: FALSE"));
+	//else
+	//{
+	//	if(outsideclient)
+	//		swprintf_s(infowstr, _T("pic: TRUE (OUTSIDE SCREENï¼)"));
+	//	else
+	//		swprintf_s(infowstr, _T("pic: TRUE"));
 
-	//Í¼Ïñ³ß´ç
-	swprintf_s(subinfo, _T("pic size: %d¡Á %d  zoom: %.3f/%.3f"), mainbmp.width, mainbmp.height, zoom, realzoom);
+	//	if (surffailed)//mainbmpå­˜åœ¨ä½†surfaceä¸å­˜åœ¨
+	//	{
+	//		wcscat_s(infowstr, L"  ");
+	//		swprintf_s(subinfo, _T("SURFACE FAILED!"));
+	//		wcscat_s(infowstr, subinfo);
+	//	}
+	//}
+	//wcscat_s(infowstr, L"\n");
+
+	//å›¾åƒå°ºå¯¸
+	swprintf_s(subinfo, _T("pic size: %dÃ— %d  zoom: %.3f/%.3f"), mainbmp.width, mainbmp.height, zoom, realzoom);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Í¼Ïñ¸ñÊ½
+	//å›¾åƒæ ¼å¼
 	swprintf_s(subinfo, _T("format: %S"), GetFMT(imginfo.Format).c_str());
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Í¼ÏñÎÄ¼ş´óĞ¡
+	//å›¾åƒæ–‡ä»¶å¤§å°
 	swprintf_s(subinfo, _T("file size: %.3lf KB"), (double)imginfo0.bytecount / 1000);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//surface³ß´ç
-	if (mainsurf)
+	//surfaceå°ºå¯¸
+	if (!NoSurf())
 	{
-		swprintf_s(subinfo, _T("intended surface: %d¡Á %d")
+		swprintf_s(subinfo, _T("intended surface: %dÃ— %d")
 			, zoomw, zoomh);
 		wcscat_s(infowstr, subinfo);
 		wcscat_s(infowstr, L"\n");
 
-		swprintf_s(subinfo, _T("surface: %d¡Á %d  actzoom: X %.4f Y %.4f")
+		swprintf_s(subinfo, _T("surface: %dÃ— %d  actzoom: X %.4f Y %.4f")
 			, (LONG)surfDesc.Width, (LONG)surfDesc.Height, actualzoomx, actualzoomy);
 	}
 	else
 	{
-		swprintf_s(subinfo, _T("intended surface: -¡Á-\n"));
+		swprintf_s(subinfo, _T("intended surface: -Ã—-\n"));
 		wcscat_s(infowstr, subinfo);
-		swprintf_s(subinfo, _T("surface: -¡Á-"));
+		swprintf_s(subinfo, _T("surface: -Ã—-"));
 	}
 
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//surfaceÆğÊ¼µã
+	//surfaceèµ·å§‹ç‚¹
 	swprintf_s(subinfo, _T("surface base: %d, %d"), -surfsrc.x, -surfsrc.y);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n"); 
 		
-	//clipsurfaceÆğÊ¼µã
+	//clipsurfaceèµ·å§‹ç‚¹
 	swprintf_s(subinfo, _T("clipsurface base: %d, %d"), surfbase.x, surfbase.y);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
 
-	//buffer³ß´ç
-	swprintf_s(subinfo, _T("buffer: %d¡Á %d"), d3dpp.BackBufferWidth, d3dpp.BackBufferHeight);
+	//bufferå°ºå¯¸
+	swprintf_s(subinfo, _T("buffer: %dÃ— %d"), d3dpp.BackBufferWidth, d3dpp.BackBufferHeight);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
 	//fps
-	swprintf_s(subinfo, _T("fps: %.1f"), fps);
+	swprintf_s(subinfo, _T("fps: %.1f/%.1f (%.1f)"), showfps, showavgfps, cvgfps);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//¼ÆÊı
+	//è®¡æ•°
 	/*swprintf_s(subinfo, _T("loops: %lld"), loopcount);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");*/
 
-	//±³¾°É«
+	//èƒŒæ™¯è‰²
 	swprintf_s(subinfo, _T("backcolor: %08X.ARGB"), backcolor);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Êó±êÏñËØÎ»ÖÃ#1
+	//é¼ æ ‡ä½ç½®
 	swprintf_s(subinfo, _T("cursor pos: %S"), cursorposshow[cursorpos].c_str());
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Êó±êÏñËØÎ»ÖÃ#2
+	//é¼ æ ‡åƒç´ ä½ç½®
 	if(NoPic())
-		swprintf_s(subinfo, _T("cursor pixel: -, -"));
+		swprintf_s(subinfo, _T("picture pixel: -, -"));
 	else
-		swprintf_s(subinfo, _T("cursor pixel: %d, %d"), curpixel.x, curpixel.y);
+		swprintf_s(subinfo, _T("picture pixel: %d, %d"), picpixel.x, picpixel.y);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Êó±êÏñËØÑÕÉ«
+	//é¼ æ ‡åƒç´ é¢œè‰²
 	swprintf_s(subinfo, _T("pixel color: %02X.%06X.ARGB")
-		, (pixelcolor >> 24), (pixelcolor & 0xFFFFFF));
+		, (picpixelcolor >> 24), (picpixelcolor & 0xFFFFFF));
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n"); 
 
-	//Êó±êÏñËØÑÕÉ«
+	//å±å¹•åƒç´ é¢œè‰²
 	swprintf_s(subinfo, _T("screen color: %02X.%06X.ARGB")
-		, (pixelcolor >> 24), (screencolor & 0xFFFFFF));
+		, (screencolor >> 24), (screencolor & 0xFFFFFF));
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Êó±êÎ»ÖÃ
+	//é¼ æ ‡ä½ç½®
 	swprintf_s(subinfo, _T("cursor: %d, %d"), cursor.x, cursor.y);
 	wcscat_s(infowstr, subinfo);
 	wcscat_s(infowstr, L"\n");
 
-	//Êó±êÏà¶Ô´°¿Ú¿Í»§ÇøÎ»ÖÃ
+	//é¼ æ ‡ç›¸å¯¹çª—å£å®¢æˆ·åŒºä½ç½®
 	swprintf_s(subinfo, _T("cursor client: %d, %d")
 		, cursor.x - clientrect.left, cursor.y - clientrect.top);
 	wcscat_s(infowstr, subinfo);
@@ -996,77 +1108,25 @@ bool InfoRender()
 
 
 
-	wcscpy_s(infowstr, L"");
-	//±êÖ¾
-	if (!mainbmp.Empty())
-		swprintf_s(subinfo, _T("pic: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("pic: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (mainsurf)
-		swprintf_s(subinfo, _T("surf: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("surf: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (onzoom)
-		swprintf_s(subinfo, _T("onzoom: ¡Ì"));//¡ğ¡Ì¡Á
-	else
-		swprintf_s(subinfo, _T("onzoom: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (ondrag)
-		swprintf_s(subinfo, _T("ondrag: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("ondrag: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (onsize)
-		swprintf_s(subinfo, _T("onsize: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("onsize: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (onmove)
-		swprintf_s(subinfo, _T("onmove: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("onmove: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (clip)
-		swprintf_s(subinfo, _T("clipon: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("clipon: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (surfclipped)
-		swprintf_s(subinfo, _T("surfclipped: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("surfclipped: ¡Á"));
-	wcscat_s(infowstr, subinfo);
-	wcscat_s(infowstr, L"    ");
-
-	if (picclipped)
-		swprintf_s(subinfo, _T("picclipped: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("picclipped: ¡Á"));
-	wcscat_s(infowstr, subinfo); 
-	wcscat_s(infowstr, L"    ");
-
-	if (outsideclient)
-		swprintf_s(subinfo, _T("picout: ¡Ì"));
-	else
-		swprintf_s(subinfo, _T("picout: ¡Á"));
-	wcscat_s(infowstr, subinfo); 
-		wcscat_s(infowstr, L"    ");
+	//æ ‡å¿—
+	swprintf_s(infowstr,
+		L"pic: %lc     \
+		surf: %lc     \
+		onzoom: %lc     \
+		drag: %lc     \
+		onsize: %lc     \
+		onmove: %lc     \
+		clipon: %lc     \
+		surfclipped: %lc     \
+		picclipped: %lc     \
+		picout: %lc     \
+		surfrefresh: %lc"
+		, yesno2[!mainbmp.Empty()]
+		, yesno2[(mainsurf!=NULL)], yesno2[onzoom]
+		, yesno2[dragging], yesno2[onsize]
+		, yesno2[onmove], yesno2[clip]
+		, yesno2[surfclipped], yesno2[picclipped]
+		, yesno2[outsideclient], yesno2[surfrefresh]);//â—
 
 	font2->DrawTextW(NULL, infowstr, -1, &textrect2, DT_LEFT | DT_TOP | DT_NOCLIP, COLOR_TEXT1);
 
@@ -1075,7 +1135,7 @@ bool InfoRender()
 
 inline bool LoadBackbuffer()
 {
-	//»ñµÃbackbuffer
+	//è·å¾—backbuffer
 	LPDIRECT3DSURFACE9 backbuffer = NULL;
 	HRESULT hr = maindevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &backbuffer);
 	if (FAILED(hr))
@@ -1083,7 +1143,7 @@ inline bool LoadBackbuffer()
 		//MessageBoxW(mainwnd, L"GetBackBuffer FAILED!", L"", 0);
 		return false;
 	}
-	//±³¾°
+	//èƒŒæ™¯
 	/*const short rwidth = 8;
 	RECT rect = {0, 0, rwidth, rwidth};
 	for (int i = 0; (i-1)*rwidth < Heightof(clientrect); i++)
@@ -1097,20 +1157,23 @@ inline bool LoadBackbuffer()
 			maindevice->ColorFill(backbuffer, &rect, D3DCOLOR_XRGB(204, 203, 204));
 		}
 	}*/
-	//¿½±´µ½backbuffer
+
+	//æ‹·è´åˆ°backbuffer
+//#define alphaloadbackbuffer
+#ifdef alphaloadbackbuffer
 	//if (clip)
 	//{
 	//	RECT surfrect;
-	//	surfrect.left = 0;//Èç¹ûÆğÊ¼µãsurfsrcÄ³Ò»Î¬Ğ¡ÓÚ0£¬ÔòÆ½ÒÆÇøÓòµ½0Æğµã£¬²¢ÉèÖÃdestpointÎª·Ç0
+	//	surfrect.left = 0;//å¦‚æœèµ·å§‹ç‚¹surfsrcæŸä¸€ç»´å°äº0ï¼Œåˆ™å¹³ç§»åŒºåŸŸåˆ°0èµ·ç‚¹ï¼Œå¹¶è®¾ç½®destpointä¸ºé0
 	//	surfrect.top = 0;
-	//	surfrect.right = min(Widthof(clientrect) - surfbase.x, surfDesc.Width);//Èç¹ûÆğÊ¼µãÓÒÏÂÇøÓò²»¹»´°¿Ú¿Í»§Çø£¬ÔòÏ÷¼õÓÒ²àºÍÏÂ²à
+	//	surfrect.right = min(Widthof(clientrect) - surfbase.x, surfDesc.Width);//å¦‚æœèµ·å§‹ç‚¹å³ä¸‹åŒºåŸŸä¸å¤Ÿçª—å£å®¢æˆ·åŒºï¼Œåˆ™å‰Šå‡å³ä¾§å’Œä¸‹ä¾§
 	//	surfrect.bottom = min(Heightof(clientrect) - surfbase.y, surfDesc.Height);
 
-	//	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &surfbase);//ĞÂsurface·½·¨
+	//	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &surfbase);//æ–°surfaceæ–¹æ³•
 	//}
 	//else
 	//{
-	//	//surface¿½±´ÇøÓò£¬¾Ésurface·½·¨
+	//	//surfaceæ‹·è´åŒºåŸŸï¼Œæ—§surfaceæ–¹æ³•
 	//	POINT destpoint;
 	//	RECT surfrect;
 	//	if (surfsrc.x < 0)
@@ -1121,16 +1184,94 @@ inline bool LoadBackbuffer()
 	//		destpoint.y = -surfsrc.y;
 	//	else
 	//		destpoint.y = 0;
-	//	surfrect.left = max(surfsrc.x, 0);//Èç¹ûÆğÊ¼µãsurfsrcÄ³Ò»Î¬Ğ¡ÓÚ0£¬ÔòÆ½ÒÆÇøÓòµ½0Æğµã£¬²¢ÉèÖÃdestpointÎª·Ç0
+	//	surfrect.left = max(surfsrc.x, 0);//å¦‚æœèµ·å§‹ç‚¹surfsrcæŸä¸€ç»´å°äº0ï¼Œåˆ™å¹³ç§»åŒºåŸŸåˆ°0èµ·ç‚¹ï¼Œå¹¶è®¾ç½®destpointä¸ºé0
 	//	surfrect.top = max(surfsrc.y, 0);
-	//	surfrect.right = min(zoomw, surfrect.left + Widthof(clientrect) - destpoint.x);//Èç¹ûÆğÊ¼µãÓÒÏÂÇøÓò²»¹»´°¿Ú¿Í»§Çø£¬ÔòÏ÷¼õÓÒ²àºÍÏÂ²à
+	//	surfrect.right = min(zoomw, surfrect.left + Widthof(clientrect) - destpoint.x);//å¦‚æœèµ·å§‹ç‚¹å³ä¸‹åŒºåŸŸä¸å¤Ÿçª—å£å®¢æˆ·åŒºï¼Œåˆ™å‰Šå‡å³ä¾§å’Œä¸‹ä¾§
 	//	surfrect.bottom = min(zoomh, surfrect.top + Heightof(clientrect) - destpoint.y);
 
-	//	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &destpoint);//¾Ésurface·½·¨
+	//	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &destpoint);//æ—§surfaceæ–¹æ³•
 	//}
-	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &surfbase);//¾Ésurface·½·¨
 
+	//é”å®šæºsurface
+	D3DLOCKED_RECT lockedRect;
+	mainsurf->LockRect(&lockedRect, NULL, NULL);
+	DWORD *surfData = (DWORD*)lockedRect.pBits;
+
+	//é”å®šbackbuffer
+	D3DLOCKED_RECT lockedRect2;
+	/*RECT bufferrect;
+	bufferrect.left = surfbase.x;
+	bufferrect.top = surfbase.y;
+	bufferrect.right = surfbase.x + Widthof(surfrect) - 1;
+	bufferrect.bottom = surfbase.y + Heightof(surfrect) - 1;*/
+	backbuffer->LockRect(&lockedRect2, NULL, NULL);
+	DWORD *backbufferData = (DWORD*)lockedRect2.pBits;
+	
+	for (int i = surfrect.top, bi = surfbase.y; i < surfrect.bottom; i++, bi++)
+	{
+		for (int j = surfrect.left, bj = surfbase.x; j < surfrect.right; j++, bj++)
+		{
+			int index = i*lockedRect.Pitch / 4 + j;
+			int index2 = (bi)*lockedRect2.Pitch / 4 + (bj);
+
+			DWORD bmppixel = surfData[index];
+
+			if ((byte)(bmppixel >> 24) < 255)
+			{
+				if (!(((bi / TRANSPARENTBACK_SQUAREWIDTH) & 0x01)
+					^ ((bj / TRANSPARENTBACK_SQUAREWIDTH) & 0x01)))
+				{
+					if (surfData[index] == AP::lastcolor1)//ç¼“å­˜åŠ é€Ÿ
+					{
+						surfData[index] = AP::lastresult1;
+					}
+					else
+					{
+						byte *dest = (byte*)&(backbufferData[index2]);
+						byte *src = (byte*)&surfData[index];
+						byte alpha = src[3];
+
+						dest[2] = (DWORD)AP::alphablendtable1[src[2]][alpha];
+						dest[1] = (DWORD)AP::alphablendtable1[src[1]][alpha];
+						dest[0] = (DWORD)AP::alphablendtable1[src[0]][alpha];
+
+						AP::lastcolor1 = bmppixel;
+						AP::lastresult1 = *(DWORD*)dest;
+					}
+				}
+				else
+				{
+					if (surfData[index] == AP::lastcolor2)//ç¼“å­˜åŠ é€Ÿ
+					{
+						surfData[index] = AP::lastresult2;
+					}
+					else
+					{
+						byte *dest = (byte*)&(backbufferData[index2]);
+						byte *src = (byte*)&surfData[index];
+						byte alpha = src[3];
+
+						dest[2] = (DWORD)AP::alphablendtable2[src[2]][alpha];
+						dest[1] = (DWORD)AP::alphablendtable2[src[1]][alpha];
+						dest[0] = (DWORD)AP::alphablendtable2[src[0]][alpha];
+
+						AP::lastcolor2 = bmppixel;
+						AP::lastresult2 = *(DWORD*)dest;
+					}
+				}
+			}
+			else
+				backbufferData[index2] = bmppixel;
+		}
+	}
 	//maindevice->StretchRect(mainsurf, 0, backbuffer, 0, D3DTEXF_NONE);
+
+	backbuffer->UnlockRect();
+	mainsurf->UnlockRect();
+#else
+	hr = maindevice->UpdateSurface(mainsurf, &surfrect, backbuffer, &surfbase);//ç»Ÿä¸€çš„æ‹·è´
+#endif
+
 	if (backbuffer)
 		backbuffer->Release();
 }
@@ -1145,32 +1286,20 @@ bool Render()
 
 	HRESULT hr;
 
-	//»æÖÆ
+	//ç»˜åˆ¶
 	maindevice->Clear(0, NULL, D3DCLEAR_TARGET, backcolor, 1.0f, 0);
 	maindevice->BeginScene();
-	if (!NoPic())
+	if (!NoSurf() && !outsideclient)
 	{
-		//surface³¬³ö´°¿ÚÇøÓòÅĞ¶Ï(Óë´°¿Ú¿Í»§ÇøÎŞ½»¼¯),ÖÕÖ¹äÖÈ¾
-		if (//ÇøÓò³¬³ösurfaceÓÒ»òÏÂ
-			surfsrc.x > zoomw || surfsrc.y > zoomh
-			//ÇøÓòÓÒÏÂ²»¹»surface×ó»òÉÏ
-			|| surfsrc.x + Widthof(clientrect) <= 0 || surfsrc.y + Heightof(clientrect) <= 0
-			)
-		{
-			outsideclient = true;
-		}
-		else
-		{
-			LoadBackbuffer();//surface×°ÔØµ½backbuffer
-			outsideclient = false;
-		}
+		//å›¾ç‰‡å­˜åœ¨ä¸”surfaceä¸çª—å£å®¢æˆ·åŒºæœ‰äº¤é›†æ‰æ¸²æŸ“
+		LoadBackbuffer();//surfaceè£…è½½åˆ°backbuffer
 	}
 	if (infoshow)
 		InfoRender();
 	maindevice->EndScene();
 	hr = maindevice->Present(NULL, NULL, NULL, NULL);
 
-	//´¦ÀíÉè±¸¶ªÊ§
+	//å¤„ç†è®¾å¤‡ä¸¢å¤±
 	if (hr == D3DERR_DEVICELOST)
 	{
 		if (maindevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
@@ -1184,8 +1313,8 @@ bool Render()
 
 void CenterPic()
 {
-	if (zoomw <= d3dpp.BackBufferWidth
-		&& zoomh <= d3dpp.BackBufferHeight)
+	if (zoomw <= (int)d3dpp.BackBufferWidth
+		&& zoomh <= (int)d3dpp.BackBufferHeight)
 	{
 		surfsrc.x = (LONG)(zoomw / 2 - d3dpp.BackBufferWidth / 2);
 		surfsrc.y = (LONG)(zoomh / 2 - d3dpp.BackBufferHeight / 2);
@@ -1197,38 +1326,38 @@ void CenterPic()
 	}
 }
 
-void Togglezoom(WPARAM wParam)
+void SurfAdjustZoom(WPARAM wParam)
 {
 	float adds = 0;
 	QueryPerformanceCounter(&wheeltick);
 
-	if (zoom<1)
+	if (zoom < 1)
 		adds = (float)(frequency.QuadPart / (wheeltick.QuadPart - lastwheeltick.QuadPart)
-			*(0.012*zoom));//Ôö³¤ËÙ¶ÈÓëÊ±¼äºÍ·Å´ó±¶ÂÊÓĞ¹Ø
+			*(DELTAZOOM1*zoom));//å¢é•¿é€Ÿåº¦ä¸æ—¶é—´å’Œæ”¾å¤§å€ç‡æœ‰å…³
 	else
 		adds = (float)(frequency.QuadPart / (wheeltick.QuadPart - lastwheeltick.QuadPart)
-			*(0.002*zoom));//Ôö³¤ËÙ¶ÈÓëÊ±¼äºÍ·Å´ó±¶ÂÊÓĞ¹Ø
+			*(DELTAZOOM2*zoom));//å¢é•¿é€Ÿåº¦ä¸æ—¶é—´å’Œæ”¾å¤§å€ç‡æœ‰å…³
 	lastwheeltick = wheeltick;
-	//>=1·Å´ó±¶ÂÊÊ±ÌØÊâ´¦Àí
-	if (zoom >= 1 && adds < 1)
-	{
-		if ((short)HIWORD(wParam) > 0)//Ôö¼Ó
-			adds = 1;
-		else//¼õÉÙ
-		{
-			if (zoom >= 2)
-				adds = 1;
-			else if (zoom > 1)
-				adds = zoom - 1;
-		}
-	}
-	//addsÏŞÖÆ
+	//>=1æ”¾å¤§å€ç‡æ—¶ç‰¹æ®Šå¤„ç†
+	//if (zoom >= 1 && adds < 1)
+	//{
+	//	if ((short)HIWORD(wParam) > 0)//å¢åŠ 
+	//		adds = 1;
+	//	else//å‡å°‘
+	//	{
+	//		if (zoom >= 2)
+	//			adds = 1;
+	//		else if (zoom > 1)
+	//			adds = zoom - 1;
+	//	}
+	//}
+	//addsé™åˆ¶
 	if (adds < MIN_DELTAZOOM)
 		adds = MIN_DELTAZOOM;
 	if ((short)HIWORD(wParam) < 0)
-		adds = -adds;//addsÈ¡·´
+		adds = -adds;//addså–å
 
-					 //zoom += (short)HIWORD(wParam) / 120;
+	//zoom += (short)HIWORD(wParam) / 120;
 
 	if (adds > 0)
 	{
@@ -1238,22 +1367,29 @@ void Togglezoom(WPARAM wParam)
 	{
 		zoom += adds;
 	}
-	//zoomÉÏÏÂÏŞ
+	//zoomä¸Šä¸‹é™
 	if (zoom > MAX_ZOOM)
 		zoom = MAX_ZOOM;
 	if (zoom*min(mainbmp.width, mainbmp.height) < 1)
-		zoom = 1.0f / min(mainbmp.width, mainbmp.height);
+		zoom = 1.00001f / min(mainbmp.width, mainbmp.height);
 
-	//ÉèÖÃÊµ¼ÊÊ¹ÓÃµÄzoom
+	//è®¾ç½®å®é™…ä½¿ç”¨çš„zoom
 	if (zoom >= 1)
-		realzoom = roundf2ui16(zoom);
+		realzoom = zoom;
 	else
 		realzoom = zoom;
-	onzoom = true;//ÉèÖÃ±êÖ¾
+	
+	onzoom = true;//è®¾ç½®æ ‡å¿—
 	zoomtick = GetTickCount64();
 }
 
-bool Zoom(float oldzoom, float zoom)
+void SurfMove(int dx, int dy)
+{
+	surfsrc.x -= dx;
+	surfsrc.y -= dy;
+}
+
+void SurfZoom(float oldzoom, float zoom, POINT cursor)
 {
 	zoomw = (int)(zoom*mainbmp.width);
 	zoomh = (int)(zoom*mainbmp.height);
@@ -1262,42 +1398,42 @@ bool Zoom(float oldzoom, float zoom)
 	actualzoomy = (float)zoomh / mainbmp.height;
 
 	if (oldzoom == zoom)
-		return false;
+		return;
 
 	UINT oldswidth = (UINT)(mainbmp.width*oldzoom), oldsheight = (UINT)(mainbmp.height*oldzoom);
 	/*POINT cursorpos;
 	GetCursorPos(&cursorpos);*/
-	//¿Í»§ÇøµÄÆÁÄ»×ø±ê
+	//å®¢æˆ·åŒºçš„å±å¹•åæ ‡
 	POINT clienttl = { 0, 0 };
 	ClientToScreen(mainwnd, &clienttl);
-	//Êó±êÏà¶Ô¿Í»§Çø×ø±ê
+	//é¼ æ ‡ç›¸å¯¹å®¢æˆ·åŒºåæ ‡
 	POINT cursortoclient;
 	cursortoclient.x = cursor.x - clienttl.x;
 	cursortoclient.y = cursor.y - clienttl.y;
-	//Êó±êÎ»ÖÃÏà¶ÔsurfaceµÄ×ø±ê
+	//é¼ æ ‡ä½ç½®ç›¸å¯¹surfaceçš„åæ ‡
 	POINT cursortosurface;
 	cursortosurface.x = surfsrc.x + cursortoclient.x;
 	cursortosurface.y = surfsrc.y + cursortoclient.y;
-	//µ÷ÕûÆğÊ¼µã#1
+	//è°ƒæ•´èµ·å§‹ç‚¹#1
 	short altstate = GetAsyncKeyState(VK_MENU);
-	if (altstate & 0x8000)
+	if (altstate & KEYSTATEMASK_DOWN)
 	{
-		surfsrc.x = surfsrc.x + ((zoom - oldzoom)*mainbmp.width) / 2;
-		surfsrc.y = surfsrc.y + ((zoom - oldzoom)*mainbmp.height) / 2;
+		surfsrc.x = surfsrc.x + (LONG)(((zoom - oldzoom)*mainbmp.width) / 2 + 0.5f);
+		surfsrc.y = surfsrc.y + (LONG)(((zoom - oldzoom)*mainbmp.height) / 2 + 0.5f);
 	}
 	else
 	{
 		surfsrc.x = (LONG)(roundf2l((float)cursortosurface.x*zoomw / oldswidth) - cursortoclient.x);
 		surfsrc.y = (LONG)(roundf2l((float)cursortosurface.y*zoomh / oldsheight) - cursortoclient.y);
 	}
-	//µ÷ÕûÆğÊ¼µã#2±£³ÖÊó±êËù´¦ÏñËØÎ»ÖÃ(ĞèÒªÉèÖÃ±äÁ¿¼ÇÂ¼ĞèÒª±£³ÖµÄÊó±êÏñËØ£¬·ñÔòÎó²î´ó)
+	//è°ƒæ•´èµ·å§‹ç‚¹#2ä¿æŒé¼ æ ‡æ‰€å¤„åƒç´ ä½ç½®(éœ€è¦è®¾ç½®å˜é‡è®°å½•éœ€è¦ä¿æŒçš„é¼ æ ‡åƒç´ ï¼Œå¦åˆ™è¯¯å·®å¤§)
 	/*surfsrc.x = round(curpixel.x*realzoom - cursortoclient.x);
 	surfsrc.y = round(curpixel.y*realzoom - cursortoclient.y);*/
 
-	//Èç¹ûÔÚ·Å´ó½×¶Î£¬´°¿Ú¿Í»§Çø¿ÉÒÔÍêÈ«ÈİÄÉsurface£¬Ôò¿ØÖÆsurfaceÏÔÊ¾ÇøÓò
-	//·ÀÖ¹Ğ¡Í¼Æ¬·Å´óÑ¸ËÙÆ«Àë´°¿Ú¿Í»§Çø
-	if (zoomw <= d3dpp.BackBufferWidth
-		&& zoomh <= d3dpp.BackBufferHeight
+	//å¦‚æœåœ¨æ”¾å¤§é˜¶æ®µï¼Œçª—å£å®¢æˆ·åŒºå¯ä»¥å®Œå…¨å®¹çº³surfaceï¼Œåˆ™æ§åˆ¶surfaceæ˜¾ç¤ºåŒºåŸŸ
+	//é˜²æ­¢å°å›¾ç‰‡æ”¾å¤§è¿…é€Ÿåç¦»çª—å£å®¢æˆ·åŒº
+	if (zoomw <= (int)d3dpp.BackBufferWidth
+		&& zoomh <= (int)d3dpp.BackBufferHeight
 		&& zoom > oldzoom)
 	{
 		if (surfsrc.x > 0)
@@ -1309,102 +1445,107 @@ bool Zoom(float oldzoom, float zoom)
 		if (surfsrc.y < (LONG)zoomh - (LONG)d3dpp.BackBufferHeight)
 			surfsrc.y = (LONG)zoomh - (LONG)d3dpp.BackBufferHeight;
 	}
-	//ÉèÖÃclip±êÖ¾
+	//è®¾ç½®clipæ ‡å¿—
 	clip = (realzoom >= 1)
 		|| (realzoom < 1 && (zoomw > MAX_FORCECLIP_WIDTH || zoomh > MAX_FORCECLIP_HEIGHT));
 
-	RefreshSurf();
+	SurfRenew();
 
-	GetCurInfo();//¸üĞÂËù´¦ÏñËØÎ»ÖÃ,ÒòÎªzoom¿ÉÄÜµ¼ÖÂÎ¢Ğ¡Æ«ÒÆ
-
-	if (!mainsurf)
-		return false;
-
-	return true;
+	GetCurInfo();//æ›´æ–°æ‰€å¤„åƒç´ ä½ç½®,å› ä¸ºzoomå¯èƒ½å¯¼è‡´å¾®å°åç§»
 }
 
-bool RefreshSurf()
+bool SurfRenew()
 {
-	//mainbmp.CreateSurf(maindevice, &mainsurf, backcolor, zoom);//¾Ésurface·½·¨
+	surfrefresh = true;
+	surfrefreshtick = GetTickCount64();
+
+	//mainbmp.CreateSurf(maindevice, &mainsurf, backcolor, zoom);//æ—§surfaceæ–¹æ³•
 	mainbmp.CreateSurf_Clip(maindevice, &mainsurf
 		, surfsrc, clientsize, surfbase, surfclipped
-		, realzoom, clip, backcolor);//ĞÂsurface·½·¨
+		, realzoom, clip, backcolor);//æ–°surfaceæ–¹æ³•
 
 	if (mainsurf)
 	{
+		surffailed = false;
+
 		mainsurf->GetDesc(&surfDesc);
-		CalcSurfMapInfo();//¸üĞÂsurface¿½±´µ½backbuffer²ÎÊı
+		CalcSurfMapInfo();//æ›´æ–°surfaceæ‹·è´åˆ°backbufferå‚æ•°
 		return true;
 	}
 	else
+	{
+		surffailed = true;
+
 		return false;
-}
-
-inline void DisplayStatusChange(bool winchange, bool surfchange)
-{
-	if(winchange)
-		Get2WndRect();//ÖØĞÂ¼ÆËã´°¿Ú´óĞ¡
-
-	if (surfchange)
-		RefreshSurf();//ÖØĞÂÉú³ÉÍ¼Æ¬
-
-	if (surfchange || winchange)
-		CalcClipped();//¼ÆËãÍ¼Æ¬clip×´Ì¬
-
-	if (surfchange)
-		CalcSurfMapInfo();//¸üĞÂsurface¿½±´µ½backbuffer²ÎÊı
+	}
 }
 
 inline void SurfStatusChange()
 {
-	CalcClipped();//¼ÆËãÍ¼Æ¬clip×´Ì¬
+	CalcClipped();//è®¡ç®—å›¾ç‰‡clipçŠ¶æ€
 
-	CalcSurfMapInfo();//¸üĞÂsurface¿½±´µ½backbuffer²ÎÊı
+	CalcSurfMapInfo();//æ›´æ–°surfaceæ‹·è´åˆ°backbufferå‚æ•°
 }
 
 
 inline void CalcSurfMapInfo()
 {
-	if (clip)
+	//surfaceæ˜¯å¦è¶…å‡ºçª—å£å®¢æˆ·åŒº
+	if (//åŒºåŸŸè¶…å‡ºsurfaceå³æˆ–ä¸‹
+		surfsrc.x > zoomw || surfsrc.y > zoomh
+		//åŒºåŸŸå³ä¸‹ä¸å¤Ÿsurfaceå·¦æˆ–ä¸Š
+		|| surfsrc.x + Widthof(clientrect) <= 0 || surfsrc.y + Heightof(clientrect) <= 0
+		)
 	{
-		surfrect.left = 0;//Èç¹ûÆğÊ¼µãsurfsrcÄ³Ò»Î¬Ğ¡ÓÚ0£¬ÔòÆ½ÒÆÇøÓòµ½0Æğµã£¬²¢ÉèÖÃdestpointÎª·Ç0
-		surfrect.top = 0;
-		surfrect.right = min(Widthof(clientrect) - surfbase.x, surfDesc.Width);//Èç¹ûÆğÊ¼µãÓÒÏÂÇøÓò²»¹»´°¿Ú¿Í»§Çø£¬ÔòÏ÷¼õÓÒ²àºÍÏÂ²à
-		surfrect.bottom = min(Heightof(clientrect) - surfbase.y, surfDesc.Height);
+		outsideclient = true;
 	}
 	else
 	{
-		//surface¿½±´ÇøÓò£¬¾Ésurface·½·¨
-		if (surfsrc.x < 0)
-			surfbase.x = -surfsrc.x;
-		else
-			surfbase.x = 0;
-		if (surfsrc.y < 0)
-			surfbase.y = -surfsrc.y;
-		else
-			surfbase.y = 0;
-		surfrect.left = max(surfsrc.x, 0);//Èç¹ûÆğÊ¼µãsurfsrcÄ³Ò»Î¬Ğ¡ÓÚ0£¬ÔòÆ½ÒÆÇøÓòµ½0Æğµã£¬²¢ÉèÖÃdestpointÎª·Ç0
+		outsideclient = false;
+	}
+
+	//è®¡ç®—surfrectå’Œsurfbase
+	//surfbaseï¼šsurfaceæ‹·è´åˆ°backbufferèµ·ç‚¹ï¼Œåˆ›å»ºsurfaceæ—¶è®¡ç®—è¿‡ï¼Œè¿˜éœ€è¦å®æ—¶è®¡ç®—
+	if (surfsrc.x > 0)
+		surfbase.x = 0;
+	else
+		surfbase.x = -surfsrc.x;
+	if (surfsrc.y > 0)
+		surfbase.y = 0;
+	else
+		surfbase.y = -surfsrc.y;
+
+	if (clip)
+	{
+		surfrect.left = 0;//å¦‚æœèµ·å§‹ç‚¹surfsrcæŸä¸€ç»´å°äº0ï¼Œåˆ™å¹³ç§»åŒºåŸŸåˆ°0èµ·ç‚¹ï¼Œå¹¶è®¾ç½®destpointä¸ºé0
+		surfrect.top = 0;
+		surfrect.right = min(Widthof(clientrect) - surfbase.x, (LONG)surfDesc.Width);//å¦‚æœèµ·å§‹ç‚¹å³ä¸‹åŒºåŸŸä¸å¤Ÿçª—å£å®¢æˆ·åŒºï¼Œåˆ™å‰Šå‡å³ä¾§å’Œä¸‹ä¾§
+		surfrect.bottom = min(Heightof(clientrect) - surfbase.y, (LONG)surfDesc.Height);
+	}
+	else
+	{
+		surfrect.left = max(surfsrc.x, 0);//å¦‚æœèµ·å§‹ç‚¹surfsrcæŸä¸€ç»´å°äº0ï¼Œåˆ™å¹³ç§»åŒºåŸŸåˆ°0èµ·ç‚¹ï¼Œå¹¶è®¾ç½®destpointä¸ºé0
 		surfrect.top = max(surfsrc.y, 0);
-		surfrect.right = min(zoomw, surfrect.left + Widthof(clientrect) - surfbase.x);//Èç¹ûÆğÊ¼µãÓÒÏÂÇøÓò²»¹»´°¿Ú¿Í»§Çø£¬ÔòÏ÷¼õÓÒ²àºÍÏÂ²à
+		surfrect.right = min(zoomw, surfrect.left + Widthof(clientrect) - surfbase.x);//å¦‚æœèµ·å§‹ç‚¹å³ä¸‹åŒºåŸŸä¸å¤Ÿçª—å£å®¢æˆ·åŒºï¼Œåˆ™å‰Šå‡å³ä¾§å’Œä¸‹ä¾§
 		surfrect.bottom = min(zoomh, surfrect.top + Heightof(clientrect) - surfbase.y);
 	}
 }
 
 inline void CalcClipped()
 {
-	POINT surfsize = { zoomw, zoomh };//Ô¤¼ÆµÄsurface³ß´ç£¬ÓÃ×÷clipÅĞ¶Ï
+	POINT surfsize = { zoomw, zoomh };//é¢„è®¡çš„surfaceå°ºå¯¸ï¼Œç”¨ä½œclipåˆ¤æ–­
 	surfsize.y = zoomh;
-	if (surfsrc.x > 0)//surface×ó²àĞèclip
+	if (surfsrc.x > 0)//surfaceå·¦ä¾§éœ€clip
 	{
 		surfsize.x -= surfsrc.x;
 	}
-	if (surfsrc.y > 0)//surfaceÉÏ²àĞèclip
+	if (surfsrc.y > 0)//surfaceä¸Šä¾§éœ€clip
 	{
 		surfsize.y -= surfsrc.y;
 	}
-	if (zoomw - surfsrc.x > Widthof(clientrect))//surfaceÓÒ²àĞèclip
+	if (zoomw - surfsrc.x > Widthof(clientrect))//surfaceå³ä¾§éœ€clip
 		surfsize.x -= (zoomw - surfsrc.x - Widthof(clientrect));
-	if (zoomh - surfsrc.y > Heightof(clientrect))//surfaceÏÂ²àĞèclip
+	if (zoomh - surfsrc.y > Heightof(clientrect))//surfaceä¸‹ä¾§éœ€clip
 		surfsize.y -= (zoomh - surfsrc.y - Heightof(clientrect));
 	if (surfsize.x < zoomw || surfsize.y < zoomh)
 		picclipped = true;
@@ -1417,37 +1558,37 @@ inline void GetCurInfo()
 	/*POINT cursor;
 	GetCursorPos(&cursor);*/
 
-	//¿Í»§ÇøµÄÆÁÄ»×ø±ê
+	//å®¢æˆ·åŒºçš„å±å¹•åæ ‡
 	POINT clienttl = { 0, 0 };
 	ClientToScreen(mainwnd, &clienttl);
-	//Êó±êÏà¶Ô¿Í»§Çø×ø±ê
+	//é¼ æ ‡ç›¸å¯¹å®¢æˆ·åŒºåæ ‡
 	POINT cursortoclient;
 	cursortoclient.x = cursor.x - clienttl.x;
 	cursortoclient.y = cursor.y - clienttl.y;
-	//Êó±êÎ»ÖÃÏà¶ÔsurfaceµÄ×ø±ê=surfsrc.x + cursortoclient.x,ÕâÀï²»ÓÃËÄÉáÎåÈë
-	curpixel.x = (LONG)((surfsrc.x + cursortoclient.x) / actualzoomx);
-	curpixel.y = (LONG)((surfsrc.y + cursortoclient.y) / actualzoomy);
+	//é¼ æ ‡ä½ç½®ç›¸å¯¹surfaceçš„åæ ‡=surfsrc.x + cursortoclient.x,è¿™é‡Œä¸ç”¨å››èˆäº”å…¥
+	picpixel.x = (LONG)((surfsrc.x + cursortoclient.x) / actualzoomx);
+	picpixel.y = (LONG)((surfsrc.y + cursortoclient.y) / actualzoomy);
 
-	//»ñµÃÏñËØÎ»ÖÃºóĞøĞÅÏ¢µÄ»ñÈ¡
+	//è·å¾—åƒç´ ä½ç½®åç»­ä¿¡æ¯çš„è·å–
 	GetCurColor();
 }
 
 inline void GetCurPos()
 {
-	//¿Í»§ÇøµÄÆÁÄ»×ø±ê
+	//å®¢æˆ·åŒºçš„å±å¹•åæ ‡
 	POINT clienttl = { 0, 0 };
 	ClientToScreen(mainwnd, &clienttl);
-	//Êó±êÏà¶Ô¿Í»§Çø×ø±ê
+	//é¼ æ ‡ç›¸å¯¹å®¢æˆ·åŒºåæ ‡
 	POINT cursortoclient;
 	cursortoclient.x = cursor.x - clienttl.x;
 	cursortoclient.y = cursor.y - clienttl.y;
 
-	//»ñµÃµ±Ç°Êó±êÎ»ÖÃ£¨ÖÖÀà£©
+	//è·å¾—å½“å‰é¼ æ ‡ä½ç½®ï¼ˆç§ç±»ï¼‰
 	POINT cursortosurf = { surfsrc.x + cursortoclient.x, surfsrc.y + cursortoclient.y };
 	RECT surfrect = { 0, 0, zoomw - 1, zoomh - 1 };
 	if (!inside(cursor, clientrect))
 		cursorpos = CURSORPOS_OUTWINDOW;
-	else if (NoPic())
+	else if (NoSurf())
 		cursorpos = CURSORPOS_BLANK;
 	else if (/*curpixel.x < 0 || curpixel.x + 1>mainbmp.width
 			 || curpixel.y < 0 || curpixel.y + 1>mainbmp.height*/
@@ -1459,27 +1600,32 @@ inline void GetCurPos()
 
 inline bool GetCurColor()
 {
-	if (NoPic())
+	if (NoSurf())
 	{
-		pixelcolor = 0;
+		picpixelcolor = 0;
 		return false;
 	}
 
-	if (curpixel.x < 0 || curpixel.x + 1>mainbmp.width
-		|| curpixel.y < 0 || curpixel.y + 1>mainbmp.height
-		|| !inside(cursor, clientrect))//Ëù´¦ÏñËØ³¬³öÍ¼Æ¬·¶Î§»ñÊó±ê³¬³ö´°¿Ú·¶Î§
+	if (picpixel.x < 0 || picpixel.x + 1 > mainbmp.width
+		|| picpixel.y < 0 || picpixel.y + 1 > mainbmp.height
+		|| !inside(cursor, clientrect))//æ‰€å¤„åƒç´ è¶…å‡ºå›¾ç‰‡èŒƒå›´è·é¼ æ ‡è¶…å‡ºçª—å£èŒƒå›´
 	{
-		pixelcolor = 0;
+		picpixelcolor = 0;
 		return false;
 	}
 	else
-		return mainbmp.GetPixel(curpixel.x, curpixel.y, &pixelcolor);
+		return mainbmp.GetPixel(picpixel.x, picpixel.y, &picpixelcolor);
 
 }
 
 inline bool NoPic()
 {
 	return (mainbmp.Empty() || !mainsurf);
+}
+
+inline bool NoSurf()
+{
+	return !mainsurf;
 }
 
 inline void Clear()
@@ -1490,6 +1636,8 @@ inline void Clear()
 	mainsurf = NULL;
 	ZeroMemory(&imginfo, sizeof(D3DXIMAGE_INFO));
 	ZeroMemory(&imginfo0, sizeof(PicInfo));
+
+	ClearFlag();
 }
 
 bool ResetDevice()
@@ -1504,17 +1652,17 @@ bool ResetDevice()
 	if (!InitDevice())
 		return false;*/
 
-	//ĞŞ¸Ädevice³¤¿í
+	//ä¿®æ”¹deviceé•¿å®½
 	OnLostDevice();
 	return OnResetDevice();
 
 	//font->Release();
 	//D3DXCreateFontW(
 	//	maindevice,
-	//	13, 5, 0, 1000, 0,			// ×ÖÌå×Ö·ûµÄ¿í¸ß¡¢ÊÇ·ñ¼Ó´Ö¡¢Mipmap¼¶±ğ¡¢ÊÇ·ñÎªĞ±Ìå	
-	//	DEFAULT_CHARSET,        // Ä¬ÈÏ×Ö·û¼¯
-	//	OUT_DEFAULT_PRECIS,     // Êä³ö¾«¶È£¬Ê¹ÓÃÄ¬ÈÏÖµ
-	//	CLEARTYPE_NATURAL_QUALITY,	// ÎÄ±¾ÖÊÁ¿NONANTIALIASED_QUALITY/CLEARTYPE_NATURAL_QUALITY
+	//	13, 5, 0, 1000, 0,			// å­—ä½“å­—ç¬¦çš„å®½é«˜ã€æ˜¯å¦åŠ ç²—ã€Mipmapçº§åˆ«ã€æ˜¯å¦ä¸ºæ–œä½“	
+	//	DEFAULT_CHARSET,        // é»˜è®¤å­—ç¬¦é›†
+	//	OUT_DEFAULT_PRECIS,     // è¾“å‡ºç²¾åº¦ï¼Œä½¿ç”¨é»˜è®¤å€¼
+	//	CLEARTYPE_NATURAL_QUALITY,	// æ–‡æœ¬è´¨é‡NONANTIALIASED_QUALITY/CLEARTYPE_NATURAL_QUALITY
 	//	DEFAULT_PITCH | FF_DONTCARE,
 	//	L"Arial Rounded MT Bold",
 	//	&font
