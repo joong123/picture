@@ -36,6 +36,30 @@
     <ClInclude Include="Pic.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="d3dgui.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="inputer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dwnd.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="generalgeo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dfont.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="d3dutil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dxutil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="bmpsurfer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -48,6 +72,27 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Pic.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="d3dgui.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="inputer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="d3dwnd.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="generalgeo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="d3dfont.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="d3dutil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dxutil.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -63,5 +108,9 @@
     <Image Include="picture.ico">
       <Filter>资源文件</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
+    <None Include="ClassDiagram1.cd" />
   </ItemGroup>
 </Project>

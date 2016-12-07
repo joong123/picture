@@ -3,75 +3,186 @@
 
 bool PicInfo::GetFile(WCHAR file[])
 {
+	if (!file)
+		return false;
+
 	ifstream in(file, ios::_Nocreate | ios::binary | 0x02);
 	if (!in.is_open())
 		return false;
 
+	in.unsetf(ios::skipws);
+
+	memset(this, 0, sizeof(*this));//清空
+	width = height = 0;
+
 	in.seekg(0, ios::end);
 	bytecount = in.tellg();
 
+	in.seekg(0, ios::beg);
+	byte identifier[8] = { 0 };
+	in.read((char*)identifier, 8);
+
+	if (*(WORD*)identifier == (WORD)0x4D42)
+	{
+		//BMP
+		//-width, height
+		pictype = PICTYPE_BMP;
+
+		in.seekg(18, ios::beg);
+		in.read((char*)&(width), 4);
+		in.read((char*)&(height), 4);
+
+		in.seekg(2, ios::cur);
+		in.read((char*)&(depth), 2);
+		//像素深度
+		generaldepth = depth;
+
+		//计算通道数
+		switch (depth)
+		{
+		case 1:
+			channels = 1;
+			break;
+		case 4:
+		case 8:
+		case 16:
+		case 24:
+			channels = 3;
+			break;
+		case 32:
+			channels = 4;
+			break;
+		}
+	}
+	else if (((WORD*)identifier)[0] == (WORD)0x5089
+		&& ((WORD*)identifier)[1] == (WORD)0x474E
+		&& ((WORD*)identifier)[2] == (WORD)0x0A0D
+		&& ((WORD*)identifier)[3] == (WORD)0x0A1A)
+	{
+		//PNG-BIGENDIAN
+		//-width, height, depth, colortype
+		pictype = PICTYPE_PNG;
+
+		in.seekg(16, ios::beg);
+		in.read((char*)&(width), 4);
+		DWORD_L2BEndian((byte*)&(width));
+
+		in.read((char*)&(height), 4);
+		DWORD_L2BEndian((byte*)&(height));
+
+		in.read((char*)&(depth), 1);
+		in.read((char*)&(colortype), 1);
+
+		//计算通道数
+		switch (colortype)
+		{
+		case 0:
+			channels = 1;
+			break;
+		case 2:
+		case 3:
+			channels = 3;
+			break;
+
+		case 4:
+		case 6:
+			channels = 4;
+			break;
+		}
+		//像素深度
+		generaldepth = depth*channels;
+	}
+	else if (((WORD*)identifier)[0] == (WORD)0xD8FF
+		&& (((WORD*)identifier)[1] & (WORD)0xE0FF) == (WORD)0xE0FF)
+	{
+		//JPG
+		//-width, height
+		pictype = PICTYPE_JPG;
+
+
+		//寻找标签
+		int FFC0pos = -1;
+		poscount = 0;
+		in.seekg(0, ios::beg);
+		//FFC0pos = in.tellg();
+		while (true)
+		{
+			poscount++;
+			if (in.eof())
+			{
+				in.clear();
+				break;
+			}
+
+			byte f, r;
+			in >> f;
+			if (f == 0xFF)
+			{
+				in >> r;
+				if (r == 0xC0 || r == 0xC2)
+					FFC0pos = in.tellg();
+				else if (r == 0xFF)
+					in.seekg(-1, ios::cur);
+			}
+		}
+		if (FFC0pos == -1)
+			return false;
+		else
+		{
+			in.seekg(FFC0pos, ios::beg);
+			in.seekg(2, ios::cur);
+			in.read((char*)&depth, 1);
+
+			in.read((char*)&height, 2);
+			WORD_L2BEndian((byte*)&height);
+
+			in.read((char*)&width, 2);
+			WORD_L2BEndian((byte*)&width);
+
+			in.read((char*)&channels, 1);
+			generaldepth = depth*channels;
+		}
+	}
+	else if ((((WORD*)identifier)[0] == (WORD)0x4949 || ((WORD*)identifier)[0] == (WORD)0x4D4D)
+		&& ((WORD*)identifier)[1] == (WORD)0x002A
+		&& identifier[4] >= (byte)0x08)
+	{
+		//TIFF
+		pictype = PICTYPE_TIFF;
+	}
+	else if (((WORD*)identifier)[0] == (WORD)0x4947
+		&& ((WORD*)identifier)[1] == (WORD)0x3846
+		&& (((WORD*)identifier)[2] == (WORD)0x6137 || ((WORD*)identifier)[2] == (WORD)0x6139))
+	{
+		//GIF
+		//-width, height
+		pictype = PICTYPE_GIF;
+
+		in.seekg(6, ios::beg);
+		in.read((char*)&(width), 2);
+		in.seekg(8, ios::beg);
+		in.read((char*)&(height), 2);
+	}
+	else
+	{
+		//CANNOT IDENTIFY
+		pictype = PICTYPE_UNKNOWN;
+
+		return false;
+	}
+	//in.seekg(0, ios::end);
+	//filelength = (UINT32)in.tellg();
+
+	if (in.eof())
+		return false;
+
+	in.close();
+
 	return true;
 }
 
-bool PicPack::Read(LPDIRECT3DDEVICE9 dev, WCHAR file[])
+bool PicInfo::GetSize(WCHAR file[])
 {
-	if (!dev)
-	{
-		return false;
-	}
-
-	//获取图像信息
-	HRESULT hr;
-	ZeroMemory(&info, sizeof(D3DXIMAGE_INFO));
-	D3DXGetImageInfoFromFile(file, &info);
-	//获取其余信息
-	ZeroMemory(&info0, sizeof(PicInfo));
-	if (!info0.GetFile(file))
-	{
-		return false;
-	}
-
-	//表面
-	LPDIRECT3DSURFACE9 tempsurf = NULL;
-	/*if (tempsurf)
-		tempsurf->Release();
-	tempsurf = NULL;*/
-	//创建与图像匹配表面
-	hr = dev->CreateOffscreenPlainSurface(
-		(LONG)info.Width, (LONG)info.Height, D3DFMT_A8R8G8B8
-		, D3DPOOL_SYSTEMMEM, &tempsurf, NULL);
-	if (FAILED(hr))
-	{
-		//MessageBoxW(mainwnd, L"CreateOffscreenPlainSurface FAILED!", L"", 0);
-		return false;
-	}
-	//装载图像
-	hr = D3DXLoadSurfaceFromFileW(
-		tempsurf, NULL, NULL, file
-		, NULL, D3DX_FILTER_NONE, 0x00000000, NULL);
-	if (FAILED(hr))
-	{
-		//MessageBoxW(mainwnd, L"D3DXLoadSurfaceFromFileW FAILED!", L"", 0);
-		return false;
-	}
-	//存入BMP
-	pic.Load(tempsurf);
-	//zoomw = (int)(realzoom*mainbmp.width);
-	//zoomh = (int)(realzoom*mainbmp.height);
-	//清除surface
-	tempsurf->Release();
-	tempsurf = NULL;
-
-	//将图片居中
-	//CenterPic();
-	//导入为surface
-	//RefreshSurf();
-	//渲染
-	//Render();
-	//保存（测试）
-	//D3DXSaveSurfaceToFile(L"E:\\1.bmp", D3DXIFF_BMP, mainsurf, NULL, NULL);
-
-	//SetWindowTextW(mainwnd, file);
-
-	return true;
+	return false;
 }
+
