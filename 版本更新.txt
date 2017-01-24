@@ -1,4 +1,4 @@
-增加surface操作的封装性（并未真的封装成类或结构）
+surfer封装
 测试高速绘制字体的CD3DFont类，但效果一般（无反走样）
 增加图片组封装-PicPack类，处理图片文件访问，信息获取
 d3dwnd创建窗口函数加入class style参数
@@ -8,3 +8,23 @@ d3dwnd创建窗口函数加入class style参数
 增加全屏F4和纯窗口F3功能
 增加双击左键移动窗口
 增加ctrl加左键拉伸窗口
+改变zoom后clip值更新策略
+动态帧率控制
+修改字体
+当前颜色块查看
+D3D使用RHW方式绘制，并动态修改buffer内容，不release重建
+修改主循环中事件捕捉方式
+主循环中帧率限制放到计数前
+增加multisample调整，但会让图片不显示
+使用haspic标志
+timebeginperiod（1）精确定时
+修改D3DGUI的控件类
+加入装饰物绘制
+命令行加入输入法输入，keydown加入大小写判断
+增强PicPackList切换图片的封装
+surfrenew判断surface尺寸，条件重建
+inputer 封装为d3dgui
+d3dgui停靠
+d3dgui一个控件阻塞控制
+增加mousewheelend用户自定义事件
+CGUIControl改为虚函数封装类

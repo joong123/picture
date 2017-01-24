@@ -17,6 +17,7 @@
 #ifndef SAFE_RELEASE
 #define SAFE_RELEASE(p)      { if (p) { (p)->Release(); (p)=NULL; } }
 #endif
+#define FAILED_RETURN_FALSE(hr)			{ if (FAILED(hr)) return false; }
 
 //窗口信息
 #define WINDOWPOSX_INIT				180
@@ -24,20 +25,29 @@
 #define WINDOWWIDTH_INIT			800
 #define WINDOWHEIGHT_INIT			520
 
+#define PI							3.14159f
+
 using std::string;
 
-#define FVF_1PD						(D3DFVF_XYZ | D3DFVF_DIFFUSE)
+#define FVF_1PD						( D3DFVF_XYZ | D3DFVF_DIFFUSE )
 struct FVF1
 {
 	D3DXVECTOR3 pos;		//顶点位置
 	DWORD color;
 };
 
-#define FVF_2CPD					(D3DFVF_XYZRHW | D3DFVF_DIFFUSE)
+#define FVF_2CPD					( D3DFVF_XYZRHW | D3DFVF_DIFFUSE )
 struct FVF2
 {
-	//float x, y, z, rhw;
-	D3DXVECTOR4 pos;     //顶点位置
+	float x, y, z, rhw;		//顶点位置
+	DWORD color;
+};
+
+#define FVF_3PDN					( D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE )
+struct FVF3
+{
+	D3DXVECTOR3 pos;		//顶点位置
+	D3DXVECTOR3 normal;
 	DWORD color;
 };
 
@@ -54,6 +64,7 @@ private:
 	LPDIRECT3DDEVICE9 device;
 	D3DDISPLAYMODE displaymode;				//显示模式
 	D3DCAPS9 caps;							//设备能力
+	D3DMULTISAMPLE_TYPE mst;
 	int vertexprocessing;					//vertexprocessing方式
 public:
 	D3DWnd() {
@@ -93,7 +104,17 @@ public:
 		, DWORD PitchAndFamily = DEFAULT_PITCH | FF_DONTCARE
 	);
 	bool CreateMeshFVF(LPD3DXMESH *ppmesh, void *vertice, void *index, UINT16 sizev, UINT16 sizei, DWORD numfaces, DWORD numvertices
-		,DWORD options);
+		, DWORD options);
+	static bool ChangeMeshColor_tail(LPD3DXMESH *ppmesh, D3DCOLOR color);
+	static bool RefreshVertexBuffer(LPDIRECT3DVERTEXBUFFER9 *vb, void *vertice);
+	bool ChangeVBColor_tail(LPDIRECT3DVERTEXBUFFER9 *vb, D3DCOLOR color, UINT16 sizev, int nums = -1);
+	bool CreateVertexBuffer_Custom1(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int r = 1, D3DCOLOR color = 0);
+	bool CreateVertexBuffer_Custom2(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int w = 1, int h = 1, D3DCOLOR color = 0);
+
+	//bool CreateMesh_Custom1(LPD3DXMESH *ppmesh);
+	void CreateSphere(ID3DXMesh ** obj, int finess, float radius, D3DCOLOR color, float height);
+
+
 	LPDIRECT3DDEVICE9 GetDevice();
 	inline UINT * GetPBufferWidth()
 	{
@@ -144,18 +165,17 @@ public:
 
 		return true;
 	}
+	void ChangeMultiSample();
 	//inline void Render();
 //信息
 	void DisplayAdapter();
-//辅助
-	string GetFMTStr(D3DFORMAT);				//获得图片格式字符串
 };
 
-static char * print_guid(GUID id) {
+static char * print_guid(GUID ID) {
 	char * str = (char *)malloc(39);
 	sprintf_s(str, 39, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
-		id.Data1, id.Data2, id.Data3,
-		id.Data4[0], id.Data4[1], id.Data4[2], id.Data4[3],
-		id.Data4[4], id.Data4[5], id.Data4[6], id.Data4[7]);
+		ID.Data1, ID.Data2, ID.Data3,
+		ID.Data4[0], ID.Data4[1], ID.Data4[2], ID.Data4[3],
+		ID.Data4[4], ID.Data4[5], ID.Data4[6], ID.Data4[7]);
 	return str;
 }

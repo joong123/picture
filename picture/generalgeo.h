@@ -16,6 +16,7 @@
 //POINT
 #define ADDPOINT(P1, P2)			{(P1).x + (P2).x, (P1).y + (P2).y}
 #define MINUSPOINT(P1, P2)			{(P1).x - (P2).x, (P1).y - (P2).y}
+#define ASIGNPOINT(P1, P2)			{(P1).x = (P2).x; (P1).y = (P2).y;}
 
 #define INSIDE(P, R)				((P).x >= (R).left && (P).x <= (R).right && (P).y >= (R).top && (P).y <= (R).bottom)
 #define OUTSIDE(P, R)				((P).x < (R).left || (P).x > (R).right || (P).y < (R).top || (P).y > (R).bottom)

@@ -20,3 +20,11 @@
 
 
 // TODO:  在此处引用程序需要的其他头文件
+
+
+inline float roundf2f(float f) {
+	if (f < 0)
+		return (float)(int)(f - 0.5f);
+	else
+		return (float)(int)(f + 0.5f);
+}

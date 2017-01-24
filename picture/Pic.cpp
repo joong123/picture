@@ -101,7 +101,7 @@ bool PicInfo::GetFile(WCHAR file[])
 
 
 		//—∞’“±Í«©
-		int FFC0pos = -1;
+		long long FFC0pos = -1;
 		poscount = 0;
 		in.seekg(0, ios::beg);
 		//FFC0pos = in.tellg();
