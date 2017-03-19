@@ -495,6 +495,9 @@ PicPack::PicPack()
 
 	ZEROPOINT(src)
 		zoom = 1.0f;
+
+	saved = false;
+	dired = false;
 }
 
 PicPack::~PicPack()
@@ -545,6 +548,10 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	// 文件名
 	wcscpy_s(strFileName, file);
 
+	// 状态更新
+	dired = true;
+	saved = true;
+
 	// 清除surface
 	SAFE_RELEASE(tempsurf);
 
@@ -573,6 +580,9 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 
 	// 文件名
 	wcscpy_s(strFileName, file);
+
+	// 状态更新
+	saved = true;
 
 	return !FAILED(hr);
 }

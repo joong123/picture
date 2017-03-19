@@ -110,7 +110,7 @@ using std::endl;
 #define COLOR_TEXT0						D3DCOLOR_ARGB(250, 255, 255, 255)
 #define COLOR_TEXT1						D3DCOLOR_ARGB(220, 110, 0, 255)
 #define COLOR_TEXT2						D3DCOLOR_ARGB(220, 250, 200, 10)
-#define COLOR_TEXT3						D3DCOLOR_ARGB(230, 90, 92, 92)
+#define COLOR_TEXT3						D3DCOLOR_ARGB(230, 120, 122, 122)
 #define COLOR_TEXT4						D3DCOLOR_ARGB(230, 200, 200, 160)
 
 #define COLOR_BLOCKALPHA				255
@@ -125,6 +125,9 @@ using std::endl;
 #define BUTTON_ID_1						1
 #define BUTTON_ID_2						2
 #define BUTTON_ID_3						3
+#define BUTTON_ID_4						4
+#define BUTTON_ID_5						5
+#define BUTTON_ID_6						6
 #define STATIC_ID_1						11
 #define STATIC_ID_2						12
 #define INPUT_IN_1						21
@@ -246,15 +249,20 @@ void SetStaticFps(float sfps);
 inline short GetSizeType(CPoint point);	// 根据当前坐标，获得鼠标类型（改变窗口大小）
 inline void SetCursor_Custom();			// 如果允许调整大小，设置鼠标样式
 // 初始化
+HFONT hf;
 bool Init();							// 初始化
 // D3D初始化
 bool D3DInit();							// D3D初始化
 // 文件
+void OnSave();
+void OnSaveAs();
 bool OnWininitFile(LPWSTR cmdline);		// 初始化时载入图片
 void OpenFileWin();						// 打开文件窗口
 void SaveFileWin(WCHAR file[] = L"");	// 保存文件窗口
+
 bool OnSaveFile(WCHAR file[]);			// 保存图片
 bool OnLoadFile(WCHAR file[]);			// 加载图片
+
 // 标志
 inline void DelayFlag();				// 延迟标志的消除
 void ClearFlag();						// 清除活跃标志

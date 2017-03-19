@@ -9,12 +9,13 @@
 using std::ifstream;
 using std::ios;
 
-#define PICTYPE_UNKNOWN		0
-#define PICTYPE_BMP			1
-#define PICTYPE_PNG			2
-#define PICTYPE_JPG			3
-#define PICTYPE_GIF			4
-#define PICTYPE_TIFF		5
+#define PICTYPE_UNKNOWN			0
+#define PICTYPE_BMP				1
+#define PICTYPE_PNG				2
+#define PICTYPE_JPG				3
+#define PICTYPE_GIF				4
+#define PICTYPE_TIFF			5
+
 
 inline void WORD_L2BEndian(byte *bp)
 {

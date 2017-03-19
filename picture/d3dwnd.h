@@ -95,7 +95,7 @@ public:
 	inline void Get2WndRect();
 //D3D
 	bool CreateDevice(D3DFORMAT format = D3DFMT_A8R8G8B8, UINT backbuffercount = 1);
-	bool D3DCreateFont(LPD3DXFONT *lpf
+	bool DXCreateFont(LPD3DXFONT *lpf
 		, WCHAR *fontName
 		, INT Height = 12, INT Width = 0, INT Weight = 0
 		, DWORD Quality = DEFAULT_QUALITY//Ωªªª¡À¥Œ–Ú

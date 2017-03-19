@@ -48,17 +48,20 @@
 #define FAILED_RETURN_FALSE(p)			{ if (FAILED(p)) return false; }
 #endif
 #ifndef SAFE_POINTERVALUE_0
-#define SAFE_POINTERVALUE_0(p)			(p)? *p : 0
+#define SAFE_POINTERVALUE_0(p)			( (p)? *p : 0 )
 #endif
 
 // 颜色
 #define SETALPHA(C, A)					((C & 0xFFFFFF) | (A << 24))
 #define COLOR_WHITE						0xFFFFFFFF
 
+//
+#define TEXTFORMAT_DEFAULT				( DT_CENTER | DT_VCENTER | DT_NOCLIP | DT_SINGLELINE )
+#define TEXTFORMAT_LEFT					( DT_LEFT | DT_VCENTER | DT_NOCLIP )
 
 // 控件类型 
 #define GUI_CONTROL_NULL				0
-#define GUI_CONTROL_STATICTEXT			1     // 文本显示
+#define GUI_CONTROL_STATIC				1     // 静态
 #define GUI_CONTROL_BUTTON				2     // 按钮
 #define GUI_CONTROL_EDIT				3     // 文本框
 #define GUI_CONTROL_BACKDROP			4     // 背景图
@@ -75,6 +78,8 @@
 #define GUI_WINDOCK_BOTTOM				2
 #define GUI_WINDOCK_BOTTOMRIGHT			3
 #define GUI_WINDOCK_BOTTOMHSPAN			4	// 横跨窗口
+#define GUI_WINDOCK_FULLSCREEN			5	// 铺满
+#define GUI_WINDOCK_SCALE				6	// 相对窗口比例
 
 // 事件处理（程序端）
 // GUI系统输入控件的事件（GUI系统统一整合事件，传递给控件）
@@ -100,8 +105,12 @@
 // 参数
 #define GUI_DEFAULT_STATICWIDTH			120
 #define GUI_DEFAULT_STATICHEIGHT		30
-#define GUI_DEFAULT_TEXTINPUTWIDTH		80
-#define GUI_DEFAULT_TEXTINPUTHEIGHT		30
+#define GUI_DEFAULT_BUTTONWIDTH			80
+#define GUI_DEFAULT_BUTTONHEIGHT		30
+#define GUI_DEFAULT_EDITWIDTH			80
+#define GUI_DEFAULT_EDITHEIGHT			30
+#define GUI_DEFAULT_BACKDROPWIDTH		120
+#define GUI_DEFAULT_BACKDROPHEIGHT		60
 
 #define GUI_DEFAULTTEXTLEN				63
 
@@ -119,13 +128,14 @@ public:
 	//int groupID;						// 控件分组，0组默认显示
 
 	DWORD color;						// 颜色
-	byte dockmode;						// 停靠模式
-	int dockX, dockY;					// 停靠坐标（相对）
-	int displaydx, displaydy;			// 显示偏移
-	int width, height;					// 宽度、高度
-	int posX, posY;						// 控件位置（左上角的坐标）
 
-	int txtpos;							// 输入字符位置
+	byte dockmode;						// 停靠模式
+	float dockX, dockY, dockW, dockH;	// 停靠坐标（相对）
+	INT8 displaydx, displaydy;			// 显示偏移
+	float width, height;				// 宽度、高度
+	float posX, posY;					// 控件位置（左上角的坐标）
+
+	int inputpos;						// 输入字符位置
 	WCHAR *text;						// 文本内容
 	DWORD textcolor;					// 文本颜色
 	LPD3DXFONT font;					// 文本字体
@@ -140,8 +150,8 @@ public:
 	byte displayevent;					// 需要特效时的事件
 	LARGE_INTEGER lasttick;				// 计时
 	byte alpha;							// 特效alpha值
-	int overdx, overdy;					// 显示位移（鼠标事件）
-	int downdx, downdy;
+	INT8 overdx, overdy;				// 显示位移（鼠标事件）
+	INT8 downdx, downdy;
 
 	static LARGE_INTEGER frequency;
 public:
@@ -174,7 +184,7 @@ struct D3DGUIVertex
 	float tu, tv;
 };
 
-#define D3DGUI_RENDER_BUTTON(DEV, LPBUF)	{\
+#define D3DGUI_RENDER_VBUFFER(DEV, LPBUF)	{\
 	DEV->SetStreamSource(0, LPBUF, 0, sizeof(D3DGUIVertex));\
 	DEV->SetFVF(D3DFVF_GUI);\
 	DEV->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2); }
@@ -241,7 +251,7 @@ private:
 
 	LPGUIEVENTCALLBACK pEventProc;					// 事件回调
 protected:
-	bool PreAddControl();//扩展控件列表空间
+	bool ControlListExpand();//扩展控件列表空间
 
 public:
 	CD3DGUISystem();
@@ -265,16 +275,20 @@ public:
 	// 创建用于保存背景图几何形状的顶点缓存,并加载要映射到表面上的纹理图像
 	// 添加静态文本控件
 	// 添加按钮控件
-	bool AddBackdrop(WCHAR *TexFileName, int width = 0, int height = 0);
-	bool AddStaticText(int ID, WCHAR *text, int x, int y, DWORD color, int fontID
-		, int width = GUI_DEFAULT_STATICWIDTH, int height = GUI_DEFAULT_STATICHEIGHT
+	bool AddBackdrop(WCHAR *TexFileName, float x = 0, float y = 0
+		, float width = GUI_DEFAULT_BACKDROPWIDTH, float height = GUI_DEFAULT_BACKDROPHEIGHT
+		, byte dock = GUI_WINDOCK_FULLSCREEN);
+	bool AddStatic(int ID, float x, float y
+		, float width = GUI_DEFAULT_STATICWIDTH, float height = GUI_DEFAULT_STATICHEIGHT
+		, WCHAR *text = L"", DWORD color = COLOR_WHITE, int fontID = 0
 		, byte dock = GUI_WINDOCK_NORMAL);
-	bool AddButton(int ID, int x, int y, int width, int height
-		, WCHAR strText[] = L"", int fontid = 0, byte dock = GUI_WINDOCK_NORMAL
+	bool AddButton(int ID, float x, float y
+		, float width = GUI_DEFAULT_BUTTONWIDTH, float height = GUI_DEFAULT_BUTTONHEIGHT
+		, WCHAR *text = L"", int fontID = 0, byte dock = GUI_WINDOCK_NORMAL
 		, WCHAR *up = L"1nd.png", WCHAR *over = L"2nd.png", WCHAR *down = L"3nd.png");
-	bool ADDTextInput(int ID, int x, int y
-		, int width = GUI_DEFAULT_TEXTINPUTWIDTH, int height = GUI_DEFAULT_TEXTINPUTHEIGHT
-		, int fontID = 0, byte dock = GUI_WINDOCK_NORMAL, DWORD color = COLOR_WHITE, DWORD txtcolor = COLOR_WHITE);
+	bool AddEdit(int ID, float x, float y
+		, float width = GUI_DEFAULT_EDITWIDTH, float height = GUI_DEFAULT_EDITHEIGHT
+		, DWORD color = COLOR_WHITE, DWORD txtcolor = COLOR_WHITE, int fontID = 0, byte dock = GUI_WINDOCK_NORMAL);
 
 	bool DropControl(int ID);							// 删除一个控件
 	int GetState(int ID);								// 获取控件状态
@@ -294,6 +308,7 @@ public:
 	void SetEventProc(LPGUIEVENTCALLBACK pevent);
 	void HandleMouse(bool LMBDown, LONG mouseX, LONG mouseY);
 	void HandleKeyboard(UINT8 keytype, WPARAM wParam);
+
 	void RenderBack();									// 背景绘制
 	void Render();										// 控件绘制
 };

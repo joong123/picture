@@ -352,7 +352,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				//不可以去掉下面3行(尽管没有添加绘图代码)，会导致帧率降低
 				PAINTSTRUCT ps;
 				HDC hdc = BeginPaint(hWnd, &ps);
+
 				// TODO: 在此处添加使用 hdc 的任何绘图代码...
+				//hf = CreateFontW(13, 5, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET
+				//	, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY
+				//	, FF_MODERN, L"Arial Rounded MT Bold");//Arial Rounded MT Bold
+				//
+				//SelectObject(hdc, (HGDIOBJ)hf);
+
+				//RECT rg = { 0,60,100,100 };
+				//SetBkMode(hdc, TRANSPARENT);
+				//SetTextColor(hdc, 0x00FF006E);
+				//DrawText(hdc, L"dwqwqa7", -1, &rg, DT_NOCLIP);
+
 				EndPaint(hWnd, &ps);
 			}
 			else
@@ -876,13 +888,13 @@ bool MYCALL1 D3DInit()
 	surfer.SetBackcolor(backcolor);
 
 	// FONT
-	pd3dwnd->D3DCreateFont(&font, L"Arial Rounded MT Bold"
-		, 13, 5, 0, CLEARTYPE_NATURAL_QUALITY);//DEFAULT_QUALITY
-	pd3dwnd->D3DCreateFont(&font2, L"Consolas"
+	pd3dwnd->DXCreateFont(&font, L"Arial Rounded MT Bold"
+		, 13, 5, FW_NORMAL, CLEARTYPE_NATURAL_QUALITY);//DEFAULT_QUALITY
+	pd3dwnd->DXCreateFont(&font2, L"Consolas"
 		, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);
-	pd3dwnd->D3DCreateFont(&fontpic, L"苹方 常规"
+	pd3dwnd->DXCreateFont(&fontpic, L"苹方 常规"
 		, 48, 0, 0, PROOF_QUALITY, 1U, false, 1UL, OUT_TT_PRECIS);
-	pd3dwnd->D3DCreateFont(&fontcmd, L"Consolas"
+	pd3dwnd->DXCreateFont(&fontcmd, L"Consolas"
 		, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);//PixelSix10,20,10
 	/*d3dfont1 = new CD3DFont(L"Arial Rounded MT Bold", 12, 0);
 	d3dfont1->InitDeviceObjects(maindevice);
@@ -896,8 +908,8 @@ bool MYCALL1 D3DInit()
 	m_sprite->SetTransform(&matTransform);*/
 
 	// OBJECT
-	//pd3dwnd->CreateMesh_Custom1(&backdecorate);
-	D3DXLoadMeshFromX(L"crystal.x", D3DXMESH_MANAGED, maindevice, NULL, NULL, NULL, NULL, &backdecorate);
+	//pd3dwnd->CreateMesh_Custom1(&backdecorate);//自创模型并保存
+	D3DXLoadMeshFromXW(L"crystal.x", D3DXMESH_MANAGED, maindevice, NULL, NULL, NULL, NULL, &backdecorate);
 	D3DXMatrixIdentity(&basemat);
 	D3DXMatrixRotationX(&basemat, PI / 2);
 
@@ -916,7 +928,6 @@ bool MYCALL1 D3DInit()
 	material.Emissive = { 0.0f,0.0f,0.0f,0.0f };
 	material.Power = 400.0f;
 	
-
 	// VIEW
 	SetView();
 
@@ -928,20 +939,16 @@ bool MYCALL1 D3DInit()
 	g_gui->Bind(pd3dwnd);
 	g_gui->SetEventProc(GUICallback);
 	g_gui->CreateDXFont(L"Consolas", &fontID1, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);
-	/*
-	g_gui->AddStaticText(STATIC_ID_1, L"",
-		2, 50, COLOR_CMD_INIT, fontID1, 200, 80);
-	g_gui->AddStaticText(STATIC_ID_2, L"",
-		2, 140, COLOR_CMD_INIT, fontID1, 200, 80);*/
+
 	int bX = 6, bY = 6, bW = 58, bH = 20;
 	int bVM = 23;
 	g_gui->AddButton(BUTTON_ID_1, bX, bY, bW, bH, L"file", 0);
 	bY += bVM;
 	g_gui->AddButton(BUTTON_ID_2, bX, bY, bW, bH, L"save", 0);
 	g_gui->AddButton(BUTTON_ID_3, bX, 50, bW, bH, L"full", 0, GUI_WINDOCK_RIGHT);
-	g_gui->ADDTextInput(INPUT_IN_1, 0, 18, 0, 20, fontID1, GUI_WINDOCK_BOTTOMHSPAN, CMDRECT_COLOR_USING, COLOR_CMD_INIT);
+	g_gui->AddEdit(INPUT_IN_1, 0, 18, 0, 20, CMDRECT_COLOR_USING, COLOR_CMD_INIT, fontID1, GUI_WINDOCK_BOTTOMHSPAN);
 	g_gui->HideControl(INPUT_IN_1);
-	//g_gui->AddBackdrop(L"1.png");
+	g_gui->AddBackdrop(L"test.jpg", 0.1f, 0.3f, 0.2f, 0.2f, GUI_WINDOCK_SCALE);
 
 	return true;
 }
@@ -976,6 +983,24 @@ bool MYCALL1 OnLoadFile(WCHAR file[])
 		ErrorShow(hr, L"Load File", mainwnd);// 显示错误信息
 
 		return false;
+	}
+}
+
+void OnSave()
+{
+	if (haspic)
+	{
+		if (mainpicpack)
+			SaveFileWin(mainpicpack->GetFileName());
+	}
+}
+
+void OnSaveAs()
+{
+	if (haspic)
+	{
+		if (mainpicpack)
+			SaveFileWin(mainpicpack->GetFileName());
 	}
 }
 
@@ -1205,12 +1230,8 @@ void KeyDownProc(WPARAM wParam)
 				pd3dwnd->ChangeMultiSample();
 				ResetDevice();
 				break;
-			case 'S':	// 手动重新生成surface一次
-				if (haspic)
-				{
-					if(mainpicpack)
-						SaveFileWin(mainpicpack->GetFileName());
-				}
+			case 'S':
+				OnSave();
 				break;
 			case 'W':	// 改变窗口模式
 				if (winmode == WINMODE_ROUND)
@@ -1402,13 +1423,14 @@ void OpenFileWin()
 	ZeroMemory(&opfn, sizeof(OPENFILENAME));
 	opfn.lStructSize = sizeof(OPENFILENAME);//结构体大小
 	opfn.lpstrFilter = L"所有文件\0*.*\0bmp文件\0*.bmp\0png文件\0*.png\0jpg文件\0*.jpg\0";//设置过滤    
-	opfn.nFilterIndex = 1;//默认过滤器索引设为1     
-	// 文件名的字段必须先把第一个字符设为\0
+	opfn.nFilterIndex = 1;//默认过滤器索引
 	opfn.lpstrFile = openfilename;
-	opfn.lpstrFile[0] = '\0';
+	opfn.lpstrFile[0] = '\0';// 文件名的字段必须先把第一个字符设为\0
 	opfn.nMaxFile = sizeof(openfilename);
-	opfn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;//设置标志位，检查目录或文件是否存在  
-	//opfn.lpstrInitialDir = NULL;     
+	opfn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;//标志位:检查目录或文件是否存在
+	opfn.hwndOwner = mainwnd;//模态
+	//opfn.lpstrInitialDir = NULL;   
+
 	// 显示对话框选择文件     
 	if (GetOpenFileName(&opfn))
 	{
@@ -1424,13 +1446,11 @@ void SaveFileWin(WCHAR file[])
 	if(file)
 		wcscpy_s(savefilename, file);
 
-	//初始化     
+	// 初始化     
 	ZeroMemory(&svfn, sizeof(OPENFILENAME));
 	svfn.lStructSize = sizeof(OPENFILENAME);//结构体大小
-	//设置过滤     
-	svfn.lpstrFilter = L"所有文件\0*.*\0bmp文件\0*.bmp\0png文件\0*.png\0jpg文件\0*.jpg\0";
-	//默认过滤器索引
-	svfn.nFilterIndex = 1;
+	svfn.lpstrFilter = L"所有文件\0*.*\0bmp文件\0*.bmp\0png文件\0*.png\0jpg文件\0*.jpg\0";//设置过滤   
+	svfn.nFilterIndex = 1;//默认过滤器索引
 	WCHAR *ftype = wcsrchr(savefilename, L'.');
 	if (ftype)
 	{
@@ -1442,12 +1462,11 @@ void SaveFileWin(WCHAR file[])
 			svfn.nFilterIndex = 4;
 
 	}
-	//文件名的字段必须先把第一个字符设为\0
 	svfn.lpstrFile = savefilename;
-	//svfn.lpstrFile[0] = '\0';
+	svfn.lpstrFile[0] = '\0';//文件名的字段必须先把第一个字符设为\0
 	svfn.nMaxFile = sizeof(savefilename);
-	//设置标志位，检查目录或文件是否存在     
-	svfn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+	svfn.Flags = OFN_OVERWRITEPROMPT ;//标志位:覆盖提醒   OFN_SHOWHELP？
+	svfn.hwndOwner = mainwnd;//模态
 	//svfn.lpstrInitialDir = NULL;     
 	// 显示对话框让用户选择文件     
 	if (GetSaveFileName(&svfn))
@@ -1463,14 +1482,15 @@ void SaveFileWin(WCHAR file[])
 				wcscat_s(savefilename, L".jpg");
 		}
 		//选中文件后操作
-		if (_waccess(savefilename, 0) == 0)//判断文件存在
-		{
-			if (IDYES == MessageBoxW(mainwnd, L"是否覆盖？", L"文件已存在", MB_YESNO | MB_APPLMODAL))
-				OnSaveFile(savefilename);
-			else
-				;
-		}
-		else
+		//已设置OFN_OVERWRITEPROMPT！
+		//if (_waccess(savefilename, 0) == 0)//判断文件存在
+		//{
+		//	if (IDYES == MessageBoxW(mainwnd, L"是否覆盖？", L"文件已存在", MB_YESNO | MB_APPLMODAL))
+		//		OnSaveFile(savefilename);
+		//	else
+		//		;
+		//}
+		//else
 			OnSaveFile(savefilename);
 	}
 }
@@ -1631,15 +1651,16 @@ bool FullScreen_Windowed(bool tofull)
 	if (iswindowedfullscreen)// 全屏化
 	{
 		originwndrect = wndrect;
-		RECT m_FullScreenRect;
-		m_FullScreenRect.left = wndrect.left - clientrect.left;
-		m_FullScreenRect.top = wndrect.top - clientrect.top + 22;
+		RECT fullScreenRect;
+		fullScreenRect.left = wndrect.left - clientrect.left;
+		fullScreenRect.top = wndrect.top - clientrect.top + 22;
 		if (purewnd)
-			m_FullScreenRect.top -= 22;
-		m_FullScreenRect.right = wndrect.right
+			fullScreenRect.top -= 22;
+		fullScreenRect.right = wndrect.right
 			- clientrect.right + GetSystemMetrics(SM_CXSCREEN) + 12;
-		m_FullScreenRect.bottom = wndrect.bottom
+		fullScreenRect.bottom = wndrect.bottom
 			- clientrect.bottom + GetSystemMetrics(SM_CYSCREEN);
+		loopcount = GetSystemMetrics(SM_CXSCREEN);
 
 		// 隐藏任务栏
 		/*HWND taskwnd, startbutton;
@@ -1657,8 +1678,8 @@ bool FullScreen_Windowed(bool tofull)
 		SetWindowLong(mainwnd, GWL_STYLE, tmp);
 		purewnd = true;
 
-		SetWindowPos(mainwnd, HWND_TOP, m_FullScreenRect.left, m_FullScreenRect.top
-			, m_FullScreenRect.right, m_FullScreenRect.bottom + 8
+		SetWindowPos(mainwnd, HWND_TOP, fullScreenRect.left, fullScreenRect.top
+			, fullScreenRect.right, fullScreenRect.bottom + 8
 			, SWP_FRAMECHANGED);//+8
 	}
 	else// 取消全屏
@@ -1748,7 +1769,6 @@ inline void MYCALL1 SetRenderState()
 
 	maindevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 	//maindevice->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
-
 	maindevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 }
 
@@ -1826,6 +1846,7 @@ bool InfoRender()
 	wcscat_s(infowstr, L"   -    -    -    -   \n");
 	wcscat_s(infowstr, surfer.GetInfoStr());
 	font->DrawTextW(NULL, infowstr, -1, &textrect1, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
+	//font->PreloadText();
 
 	// 附加信息
 	//const string cursorposshow[3] = { "PIC", "BLANK", "OUTSIDE CLIENT" };

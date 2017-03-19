@@ -66,9 +66,8 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 		{
 			MessageBox(NULL, L"RegisterClass Failed in D3DWnd::D3DCreateWindow!", L"ERROR", MB_OK | MB_APPLMODAL);
 		}
-		//return false;
+		return false;
 	}
-
 
 	hwnd = CreateWindowExW(ExStyle, szWindowClass, lpWindowName, Style,
 		x, y, width, height
@@ -175,7 +174,7 @@ bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
 	return true;
 }
 
-bool D3DWnd::D3DCreateFont(LPD3DXFONT * lpf, WCHAR *fontName
+bool D3DWnd::DXCreateFont(LPD3DXFONT * lpf, WCHAR *fontName
 	, INT Height, INT Width, INT Weight
 	, DWORD Quality
 	, UINT MipLevels, bool Italics

@@ -1026,6 +1026,9 @@ private:
 	D3DXIMAGE_INFO d3dimginfo;		//自定图片信息
 	WCHAR strFileName[MAX_PATH];	//文件名
 
+	bool saved;
+	bool dired;
+
 	// 与surface捆绑的信息
 	POINT src;
 	float zoom;

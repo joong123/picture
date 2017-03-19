@@ -47,10 +47,8 @@ bool PicInfo::GetFile(WCHAR file[])
 		case 8:
 		case 16:
 		case 24:
-			channels = 3;
-			break;
 		case 32:
-			channels = 4;
+			channels = 3;
 			break;
 		}
 	}
@@ -99,7 +97,6 @@ bool PicInfo::GetFile(WCHAR file[])
 		//-width, height
 		pictype = PICTYPE_JPG;
 
-
 		//Ñ°ÕÒ±êÇ©
 		long long FFC0pos = -1;
 		poscount = 0;
@@ -116,7 +113,7 @@ bool PicInfo::GetFile(WCHAR file[])
 
 			byte f, r;
 			in >> f;
-			if (f == 0xFF)
+			if (f == 0xFF)//ËÑË÷0xFFC0
 			{
 				in >> r;
 				if (r == 0xC0 || r == 0xC2)
