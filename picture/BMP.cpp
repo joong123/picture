@@ -154,12 +154,14 @@ bool MYCALL1 BMP::Inverse()
 {
 	for (int i = 0; i < height; i++)
 	{
+		byte *ppix = data[i];
 		for (int j = 0; j < width; j++)
 		{
-			byte *ppix = (byte*)&((DWORD*)data[i])[j];
-			ppix[0] = 255 - ppix[0];
-			ppix[1] = 255 - ppix[1];
-			ppix[2] = 255 - ppix[2];
+			/*ppix[0] = ~ppix[0];
+			ppix[1] = ~ppix[1];*/
+			*(UINT16*)ppix = ~(*(UINT16*)ppix);
+			ppix[2] = ~ppix[2];
+			ppix += 4;
 		}
 	}
 	return true;
@@ -230,6 +232,56 @@ bool MYCALL1 BMP::LOSE_B()
 	return true;
 }
 
+bool MYCALL1 BMP::RGB2HSV()
+{
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width; j++)
+		{
+			byte *ppix = (byte*)&((DWORD*)data[i])[j];
+
+			byte r = ppix[2];
+			byte g = ppix[1];
+			byte b = ppix[0];
+			byte max = 0;
+			byte min = 1;
+			if (g > b)
+			{
+				max = 1;
+				min = 0;
+			}
+			if (r > ppix[max])
+				max = 2;
+			else if (r < ppix[min])
+				min = 2;
+			byte minvalue = ppix[min];
+			byte maxvalue = ppix[max];
+
+			ppix[0] = maxvalue;//v
+			ppix[1] = (maxvalue == 0 ? 0 : ROUND_BYTE(255.0f*(maxvalue - minvalue) / maxvalue));//s
+
+			if (maxvalue == minvalue)
+				ppix[2] = 0;
+			else
+			{
+				if (max == 2)
+				{
+					ppix[2] = ROUND_BYTE(255.0f * (60 * (g - b) / (maxvalue - minvalue)) / 360);
+				}
+				else if (max == 1)
+				{
+					ppix[2] = ROUND_BYTE(255.0f * (120 + 60 * (b - r) / (maxvalue - minvalue)) / 360);
+				}
+				else
+				{
+					ppix[2] = ROUND_BYTE(255.0f * (240 + 60 * (r - g) / (maxvalue - minvalue)) / 360);
+				}
+			}
+		}
+	}
+	return true;
+}
+
 void MYCALL1 BMP::Clear()
 {
 	if (data)//释放二维空间
@@ -267,6 +319,7 @@ Surfer::Surfer() {
 	//surfrenewcount = 0;
 	renewtime = -0.001f;
 	sampleschema = SAMPLE_SCHEMA_UNKNOWN;
+	surferinfostr[0] = (WCHAR)'\0';
 
 	QueryPerformanceFrequency(&freq);
 	wheeltick.QuadPart = 0;
@@ -329,7 +382,7 @@ bool Surfer::BindBuf(UINT * bufw, UINT * bufh)
 	return pbufw && pbufh;
 }
 
-void Surfer::SetBackcolor(D3DCOLOR bc)
+void Surfer::SetBackcolor(DWORD bc)
 {
 	backcolor = bc;
 }
@@ -338,7 +391,8 @@ bool Surfer::BindPic(PicPack * ppic, bool renew, bool debind)
 {
 	if (ppic)
 	{
-		pbmp = ppic->GetPBMP();//指针
+		// 捆绑指针
+		pbmp = ppic->GetPBMP();
 		pbmpw = &pbmp->width;
 		pbmph = &pbmp->height;
 
@@ -347,6 +401,7 @@ bool Surfer::BindPic(PicPack * ppic, bool renew, bool debind)
 		surfzoom = ppic->GetZoom();
 		oldsurfzoom = surfzoom;
 
+		//zoomw, zoomh更新
 		zoomw = (int)(surfzoom**pbmpw);
 		zoomh = (int)(surfzoom**pbmph);
 		actualzoomx = (float)zoomw / *pbmpw;
@@ -359,9 +414,9 @@ bool Surfer::BindPic(PicPack * ppic, bool renew, bool debind)
 
 	CalcBindSituation();
 
-	if(renew && ppic)
+	if (renew)
 		SurfRenew(false);
-	SetInfoStr();// 更新信息字符串
+	SetInfoStr();// 更新信息字符串，Clear()中有
 
 	return pbmp != NULL;
 }
@@ -381,17 +436,24 @@ bool Surfer::DeBindPic(PicPack *ppic)
 		return false;
 }
 
-void Surfer::Refresh()
-{
-	if (haspic)
-	{
-		zoomw = (int)(surfzoom**pbmpw);
-		zoomh = (int)(surfzoom**pbmph);
+//void Surfer::Refresh()
+//{
+//	if (haspic)
+//	{
+//		zoomw = (int)(surfzoom**pbmpw);
+//		zoomh = (int)(surfzoom**pbmph);
+//		actualzoomx = (float)zoomw / *pbmpw;
+//		actualzoomy = (float)zoomh / *pbmph;
+//
+//		SurfRenew(false);
+//		SetInfoStr();// 更新信息字符串
+//	}
+//	else
+//	{
+//
+//	}
+//}
 
-		SurfRenew(false);
-		SetInfoStr();// 更新信息字符串
-	}
-}
 void Surfer::SetBasePoint(POINT bp)
 {
 	basepoint = bp;
@@ -489,12 +551,14 @@ void ALPHABLEND::InitAlphBlendTCube()
 
 PicPack::PicPack() 
 {
+	bmp = new BMP;
+
 	ZeroMemory(&myimginfo, sizeof(myimginfo));
 	ZeroMemory(&d3dimginfo, sizeof(d3dimginfo));
 	strFileName[0] = L'\0';
 
 	ZEROPOINT(src)
-		zoom = 1.0f;
+	zoom = 1.0f;
 
 	saved = false;
 	dired = false;
@@ -502,7 +566,8 @@ PicPack::PicPack()
 
 PicPack::~PicPack()
 {
-	bmp.~BMP();
+	delete bmp;
+	bmp = NULL;
 }
 
 WCHAR * PicPack::GetFileName()
@@ -515,7 +580,7 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	if (!pdev)
 		return E_FAIL;
 
-	// 获取图像信息
+	// 获取图片信息
 	HRESULT hr;
 	ZeroMemory(&d3dimginfo, sizeof(D3DXIMAGE_INFO));
 	D3DXGetImageInfoFromFileW(file, &d3dimginfo);
@@ -524,16 +589,16 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	return false;
 	}*/
 	//获取基本信息
-	if(!myimginfo.GetFile(file))
+	if(!myimginfo.ReadFile(file))
 		return E_FAIL;
 
-	// 创建与图像匹配表面
+	// 创建与图片匹配表面
 	LPDIRECT3DSURFACE9 tempsurf = NULL;
 	hr = pdev->CreateOffscreenPlainSurface(
 		(LONG)myimginfo.width, (LONG)myimginfo.height, D3DFMT_A8R8G8B8
 		, D3DPOOL_SYSTEMMEM, &tempsurf, NULL);
 	FAILED_RETURN(hr);
-	// 装载图像
+	// 装载图片
 	hr = D3DXLoadSurfaceFromFileW(
 		tempsurf, NULL, NULL, file
 		, NULL, D3DX_FILTER_NONE, 0x00000000, NULL);
@@ -542,8 +607,8 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	//S_OK;
 
 	// 存入BMP
-	if (!bmp.Load(tempsurf)) return E_FAIL;//从tempsurface加载图片
-	bmp.SetAlpha(myimginfo.channels == 4);//设置alpha
+	if (!bmp->Load(tempsurf)) return E_FAIL;//从tempsurface加载图片
+	bmp->SetAlpha(myimginfo.channels == 4);//设置alpha
 
 	// 文件名
 	wcscpy_s(strFileName, file);
@@ -560,7 +625,7 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 
 bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 {
-	if (!pdev || bmp.isEmpty())
+	if (!pdev || bmp->isEmpty())
 	{
 		return false;
 	}
@@ -568,14 +633,14 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 
 	LPDIRECT3DSURFACE9 tempsurf = NULL;
 	hr = pdev->CreateOffscreenPlainSurface(
-		bmp.width, bmp.height
+		bmp->width, bmp->height
 		, D3DFMT_A8R8G8B8
 		, D3DPOOL_SYSTEMMEM
 		, &tempsurf
 		, NULL);
 	FAILED_RETURN_FALSE(hr);
 
-	FALSE_RETURN(bmp.UpLoad(tempsurf));//从tempsurface加载图片
+	FALSE_RETURN(bmp->UpLoad(tempsurf));//从tempsurface加载图片
 	hr = D3DXSaveSurfaceToFile(file, d3dimginfo.ImageFileFormat, tempsurf, NULL, NULL);//保存到文件
 
 	// 文件名
@@ -589,19 +654,19 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 
 WCHAR * PicPack::GetPicInfoStrW()
 {
-	//图像尺寸、格式
+	//图片尺寸、格式
 	swprintf_s(picinfostr, _T("SIZE: %d × %d\n\
 		FORMAT: %S\n\
 		FILE: %lld Bytes  [%.3fMB]\n\
 		DEPTH: %d\n\
 		CHANNEL: %d\n\
 		ALPHA: %d")
-		, bmp.width, bmp.height
+		, bmp->width, bmp->height
 		, GetFMTStr(d3dimginfo.Format).c_str()
 		, myimginfo.bytecount, myimginfo.bytecount / 1048576.0f
 		, myimginfo.generaldepth
 		, myimginfo.channels
-		, bmp.alphaon);
+		, bmp->alphaon);
 	return picinfostr;
 }
 
@@ -712,28 +777,20 @@ PicPack * PicPackList::SetPicPack(int idx)
 	}
 }
 
-PicPack * PicPackList::SetPicPack()
+PicPack * PicPackList::SetTailPicPack()
 {
 	if (count < 1)
 		return NULL;
 
-	if (count > 0)
-	{
-		cur = count;
+	cur = count;
 
-		pLivePicPack = plist[cur - 1];
-		pLiveBMP = pLivePicPack->GetPBMP();
+	pLivePicPack = plist[cur - 1];
+	pLiveBMP = pLivePicPack->GetPBMP();
 
-		return plist[cur - 1];
-	}
-	else
-	{
-		cur = 0;
-		return NULL;
-	}
+	return plist[cur - 1];
 }
 
-PicPack * PicPackList::GetLast()
+PicPack * PicPackList::SetPrev()
 {
 	if (count < 1)
 		return NULL;
@@ -758,7 +815,7 @@ PicPack * PicPackList::GetLast()
 	}
 }
 
-PicPack * PicPackList::GetNext()
+PicPack * PicPackList::SetNext()
 {
 	if (count < 1)
 		return NULL;
@@ -797,7 +854,7 @@ PicPack * PicPackList::Drop()
 		cur--;
 	count--;
 
-	if (count >= 1 && cur <= count && cur > 0)//删除后转到下一张图片
+	if (count >= 1 && cur <= count && cur > 0)//删除后还有图片
 	{
 		pLivePicPack = plist[cur - 1];
 		pLiveBMP = pLivePicPack->GetPBMP();

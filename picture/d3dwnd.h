@@ -25,8 +25,6 @@
 #define WINDOWWIDTH_INIT			800
 #define WINDOWHEIGHT_INIT			520
 
-#define PI							3.14159f
-
 using std::string;
 
 #define FVF_1PD						( D3DFVF_XYZ | D3DFVF_DIFFUSE )

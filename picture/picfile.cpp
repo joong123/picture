@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "Pic.h"
+#include "picfile.h"
 
-bool PicInfo::GetFile(WCHAR file[])
+bool PicInfo::ReadFile(WCHAR file[])
 {
 	if (!file)
 		return false;
@@ -33,12 +33,12 @@ bool PicInfo::GetFile(WCHAR file[])
 		in.read((char*)&(height), 4);
 
 		in.seekg(2, ios::cur);
-		in.read((char*)&(depth), 2);
+		in.read((char*)&(depthinfile), 2);
 		//像素深度
-		generaldepth = depth;
+		generaldepth = depthinfile;
 
 		//计算通道数
-		switch (depth)
+		switch (depthinfile)
 		{
 		case 1:
 			channels = 1;
@@ -68,7 +68,7 @@ bool PicInfo::GetFile(WCHAR file[])
 		in.read((char*)&(height), 4);
 		DWORD_L2BEndian((byte*)&(height));
 
-		in.read((char*)&(depth), 1);
+		in.read((char*)&(depthinfile), 1);
 		in.read((char*)&(colortype), 1);
 
 		//计算通道数
@@ -88,7 +88,7 @@ bool PicInfo::GetFile(WCHAR file[])
 			break;
 		}
 		//像素深度
-		generaldepth = depth*channels;
+		generaldepth = depthinfile*channels;
 	}
 	else if (((WORD*)identifier)[0] == (WORD)0xD8FF
 		&& (((WORD*)identifier)[1] & (WORD)0xE0FF) == (WORD)0xE0FF)
@@ -99,7 +99,7 @@ bool PicInfo::GetFile(WCHAR file[])
 
 		//寻找标签
 		long long FFC0pos = -1;
-		poscount = 0;
+		int poscount = 0;
 		in.seekg(0, ios::beg);
 		//FFC0pos = in.tellg();
 		while (true)
@@ -128,7 +128,7 @@ bool PicInfo::GetFile(WCHAR file[])
 		{
 			in.seekg(FFC0pos, ios::beg);
 			in.seekg(2, ios::cur);
-			in.read((char*)&depth, 1);
+			in.read((char*)&depthinfile, 1);
 
 			in.read((char*)&height, 2);
 			WORD_L2BEndian((byte*)&height);
@@ -137,7 +137,7 @@ bool PicInfo::GetFile(WCHAR file[])
 			WORD_L2BEndian((byte*)&width);
 
 			in.read((char*)&channels, 1);
-			generaldepth = depth*channels;
+			generaldepth = depthinfile*channels;
 		}
 	}
 	else if ((((WORD*)identifier)[0] == (WORD)0x4949 || ((WORD*)identifier)[0] == (WORD)0x4D4D)

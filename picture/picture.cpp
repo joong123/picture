@@ -105,7 +105,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		/********************* 发布消息后做的动作 *********************/
 		// 最小化状态拦截
-		if (isiconic)//ERROR 退出时崩溃！
+		if (isiconic)//ERROR 有时退出时会崩溃，指向这行！
 		{
 			Sleep(ICONIC_SLEEP);//最小化状态降低资源消耗
 			continue;
@@ -201,7 +201,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			if (cvgfps < 0)							//收敛帧率
 				cvgfps = fps;
 			else
-				cvgfps = cvgfps*fpscount / (fpscount + 1) + fps / (fpscount + 1);
+				cvgfps = (cvgfps*fpscount + fps) / (fpscount + 1);
 		}
 		stime.QuadPart = etime.QuadPart;// 开始计时
 
@@ -385,32 +385,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				/*mainbmp->TestInc();
 				surfer.SurfRenew(false);*/
-				surfrenew = surfer.OnDrag_Custom(MINUSPOINT(cursor, lastcursor));
-				needforcerenew |= surfrenew;
-
-				/*
-				* 标志
-				*/
-				if (surfrenew)
-				{
-					surfrenewtick = GetTickCount();
-				}
-				dragging = true;
-				dragtick = GetTickCount();
+				SF_SRFR(surfer.OnMove_Custom(MINUSPOINT(cursor, lastcursor)));
+				SF_DR();
 			}
 			else if (ondragzoom)//*****************************************高效********************************
 			{
-				surfer.SurfAdjustZoom_normal1((cursor.x - lastcursor.x) * 4);//调整放大倍率
-				surfer.SurfZoomRenew(surfer.basepoint, false, true);//缩放
+				surfer.SurfAdjustZoom_dragPR(cursor.x - lastcursor.x);//调整放大倍率
+				surfrenew = surfer.SurfZoomRenew(NULL, ISALTDOWN, !ISKEYDOWN('V'));
 
 				needforcerenew = true;
 
 				// 标志
+				if (surfrenew)
+					surfrenewtick = GetTickCount();
 				draggingzoom = true;
 				dragzoomtick = GetTickCount();
-
-				surfrenew = true;
-				surfrenewtick = GetTickCount();
 			}
 			else
 			{
@@ -420,10 +409,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		else
 			g_gui->HandleMouse(LMBdown, cursor.x - clientrect.left, cursor.y - clientrect.top);
 		// 获取信息
-		surfer.GetCurInfo(cursor, clientrect);
-		pd3dwnd->ChangeVBColor_tail(&colorblock
-			, surfer.pixelcolorvalid ? SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA) : backcolor
-			, sizeof(FVF2));
+		surfer.GetCurInfo(&cursor, &clientrect);
+		//pd3dwnd->ChangeVBColor_tail(&colorblock
+		//	, surfer.pixelcolorvalid ? SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA) : backcolor
+		//	, sizeof(FVF2));
 
 		lastcursor = cursor;//保存鼠标位置
 		break;
@@ -432,23 +421,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (haspic)
 		{
 			//缩放
-			surfer.SurfAdjustZoom_wheel((short)HIWORD(wParam));
-			surfer.SurfZoomRenew({ cursor.x - clientrect.left, cursor.y - clientrect.top }, false, true);
+			POINT base;
+			base.x = cursor.x - clientrect.left;
+			base.y = cursor.y - clientrect.top;
+			surfer.SurfAdjustZoom_wheelPR((short)HIWORD(wParam));
+			surfrenew = surfer.SurfZoomRenew(&base, ISALTDOWN, !ISKEYDOWN('V'));
 
 			needforcerenew = true;
 
 			// 获取信息
-			surfer.GetCurInfo(cursor, clientrect);
-			pd3dwnd->ChangeVBColor_tail(&colorblock
-				, surfer.pixelcolorvalid ? SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA) : backcolor
-				, sizeof(FVF2));
+			surfer.GetCurInfo(&cursor, &clientrect);
+			//pd3dwnd->ChangeVBColor_tail(&colorblock
+			//	, surfer.pixelcolorvalid ? SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA) : backcolor
+			//	, sizeof(FVF2));
 
 			// 标志
+			if(surfrenew)
+				surfrenewtick = GetTickCount();
 			onzoom = true;
 			zoomtick = GetTickCount();
-
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
 		}
 		break;
 	//	WM_SIZE	- 窗口拉伸，需要高效
@@ -469,9 +460,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			// 标志
 			if (surfrenew)
-			{
 				surfrenewtick = GetTickCount();
-			}
 			onsize = true;
 			sizetick = GetTickCount();
 		}
@@ -486,10 +475,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (!onsize)
 		{
 			//更新窗口区域
-			OnWinChange();//size时不做，(尽管WM_MOVE先于WM_SIZE)
-
-			//不重绘，防止窗口尺寸跳变时渲染有跳变。
-			//Render();//size时的move消息不重绘，在onpaint重绘
+			OnWinChange();//size时不做,否则重复执行
 		}
 		break;
 	//	WM_SETCURSOR	- 设置鼠标样式
@@ -521,19 +507,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		LMBdown = true;
 		
 		//自定义客户区内拉伸窗口
-		if (ISKEYDOWN(VK_CONTROL))
+		if (ISCONTROLDOWN)
 		{
 			if (iswindowedfullscreen)
-			{
-				FullScreen_Windowed(!iswindowedfullscreen);
-			}
-			else
-			{
-				ClickDragWindow_Custom(cursor.x, cursor.y);
-			}
+				FullScreen_Windowed(!iswindowedfullscreen, false);//退出全屏
+			
+			BeginDragWindow_Custom(cursor.x, cursor.y);
 			break;
 		}
-		//自定义拉伸窗口
+		//无边框窗口拉伸
 		else if (sizeEnable && winmode == WINMODE_ROUND
 			&& GetSizeType(cursor) != 0 && !iswindowedfullscreen)
 		{
@@ -549,7 +531,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 
-		SetCapture(mainwnd);//辅助GUI
 		g_gui->HandleMouse(LMBdown, cursor.x - clientrect.left, cursor.y - clientrect.top);
 
 		break;
@@ -606,16 +587,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SURFFORCERENEW:
 		if (!ondrag && !onzoom && !ondragzoom && !onsize)
 		{
-			surfer.SurfRenew(false);
-			needforcerenew = false;//清除标志
+			SF_SR(surfer.SurfRenew(false));
+			needforcerenew = false;//清除需要强制刷新的标志
 			
-			surfer.GetCurInfo(cursor, clientrect);//获取信息
-			pd3dwnd->ChangeVBColor_tail(&colorblock
-				, SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA), sizeof(FVF2));
+			surfer.GetCurInfo(&cursor, &clientrect);//获取信息
+			//pd3dwnd->ChangeVBColor_tail(&colorblock
+			//	, SETALPHA(surfer.picpixelcolor, COLOR_BLOCKALPHA), sizeof(FVF2));//改变colorblock模型颜色
 
-			// 标志
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
 		}
 		break;
 	case WM_MOUSEWHEELEND:
@@ -648,7 +626,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		uFileNum = ::DragQueryFile((HDROP)wParam, 0xffffffff, NULL, 0);
 		WCHAR file[MAX_PATH];
 		::DragQueryFile((HDROP)wParam, 0, file, MAX_PATH);//获取文件名
-		OnLoadFile(file);
+		LoadFile(file);
 		break;
 	case WM_TOGGLEFULLSCREEN:
 		FullScreen_Windowed(!iswindowedfullscreen);
@@ -698,9 +676,12 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 short MYCALL1 GetSizeType(CPoint point)
 {
-	short sizetype = 0;
+	short sizetype = HTNOWHERE;
 
-	if (point.x <= clientrect.left + SIZE_NEAR_PIXEL && point.x >= clientrect.left - SIZE_NEAR_PIXEL
+	if (point.x > clientrect.left + SIZE_NEAR_PIXEL && point.x < clientrect.right - SIZE_NEAR_PIXEL
+		&& point.y > wndrect.top + 12 && point.y < clientrect.bottom - SIZE_NEAR_PIXEL)
+		sizetype = HTNOWHERE;
+	else if (point.x <= clientrect.left + SIZE_NEAR_PIXEL && point.x >= clientrect.left - SIZE_NEAR_PIXEL
 		&& point.y <= wndrect.top + 12 && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
 		sizetype = HTTOPLEFT;
 	else if (point.x <= clientrect.right + SIZE_NEAR_PIXEL && point.x >= clientrect.right - SIZE_NEAR_PIXEL
@@ -716,7 +697,7 @@ short MYCALL1 GetSizeType(CPoint point)
 		sizetype = HTLEFT;
 	else if (point.x <= clientrect.right + SIZE_NEAR_PIXEL && point.x >= clientrect.right - SIZE_NEAR_PIXEL)
 		sizetype = HTRIGHT;
-	else if (point.y <= wndrect.top + 12 && point.y >= wndrect.top - SIZE_NEAR_PIXEL)
+	else if (point.y <= wndrect.top + 12 + SIZE_NEAR_PIXEL && point.y >= wndrect.top + 12 - SIZE_NEAR_PIXEL)
 		sizetype = HTTOP;
 	else if (point.y <= clientrect.bottom + SIZE_NEAR_PIXEL && point.y >= clientrect.bottom - SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOM;
@@ -787,22 +768,16 @@ void MYCALL1 OnWinChange()
 inline void MYCALL1 RefreshTextRect()
 {
 	// 状态信息显示区域
-	textrect2.left = TEXTMARGIN_SIDE;
-	textrect2.top = HEIGHTOF(clientrect) - TEXTMARGIN_BOTTOM - 16;
-	textrect2.right = textrect2.left + 600;
-	textrect2.bottom = textrect2.top + 16;
-
-	// 命令行显示区域
-	cmdrect.left = TEXTMARGIN_SIDE;
-	cmdrect.top = HEIGHTOF(clientrect) - 38;
-	cmdrect.right = WIDTHOF(clientrect);
-	cmdrect.bottom = HEIGHTOF(clientrect) - 18;
+	textrect_flag.left = TEXTMARGIN_SIDE;
+	textrect_flag.top = HEIGHTOF(clientrect) - TEXTMARGIN_BOTTOM - 16;
+	textrect_flag.right = textrect_flag.left + 600;
+	textrect_flag.bottom = textrect_flag.top + 16;
 
 	// 图片状态显示区域
-	picrect.right = WIDTHOF(clientrect) - 10;
-	picrect.top = TEXTMARGIN_TOP;
-	picrect.left = picrect.right - 100;
-	picrect.bottom = picrect.top + 60;
+	textrect_picnum.right = WIDTHOF(clientrect) - 10;
+	textrect_picnum.top = TEXTMARGIN_TOP;
+	textrect_picnum.left = textrect_picnum.right - 100;
+	textrect_picnum.bottom = textrect_picnum.top + 60;
 }
 
 bool MYCALL1 Init()
@@ -842,7 +817,7 @@ bool MYCALL1 Init()
 	flagshow = true;
 	infoshow = true;
 	debuginfoshow = false;
-	fpslimit = true;
+	fpslimit = false;
 	screencoloron = false;
 	screencolor = 0;
 
@@ -858,13 +833,14 @@ bool MYCALL1 Init()
 	cvgfps = -1.0f;
 	fpscount = 0;
 	frametime = 0.0f;
+	proctime = 0.0f;
 
 	//D3D
 	maindevice = NULL;
 
 	//信息显示
-	textrect0 = RECT(TEXTMARGIN_SIDE, TEXTMARGIN_TOP + 60, 400, 100);
-	textrect1 = RECT(TEXTMARGIN_SIDE, textrect0.bottom, 400, 500);
+	textrect_pic = RECT(TEXTMARGIN_SIDE, TEXTMARGIN_TOP + 60, 400, 100);
+	textrect_surface = RECT(TEXTMARGIN_SIDE, textrect_pic.bottom, 400, 500);
 
 	RefreshTextRect();
 
@@ -891,11 +867,12 @@ bool MYCALL1 D3DInit()
 	pd3dwnd->DXCreateFont(&font, L"Arial Rounded MT Bold"
 		, 13, 5, FW_NORMAL, CLEARTYPE_NATURAL_QUALITY);//DEFAULT_QUALITY
 	pd3dwnd->DXCreateFont(&font2, L"Consolas"
-		, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);
+		, 15, 0, FW_NORMAL, CLEARTYPE_NATURAL_QUALITY);
 	pd3dwnd->DXCreateFont(&fontpic, L"苹方 常规"
-		, 48, 0, 0, PROOF_QUALITY, 1U, false, 1UL, OUT_TT_PRECIS);
+		, 48, 0, FW_NORMAL, PROOF_QUALITY, 1U, false, 1UL, OUT_TT_PRECIS);
 	pd3dwnd->DXCreateFont(&fontcmd, L"Consolas"
-		, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);//PixelSix10,20,10
+		, 15, 0, FW_NORMAL, CLEARTYPE_NATURAL_QUALITY);//PixelSix10,20,10
+	// CD3DFont
 	/*d3dfont1 = new CD3DFont(L"Arial Rounded MT Bold", 12, 0);
 	d3dfont1->InitDeviceObjects(maindevice);
 	d3dfont1->RestoreDeviceObjects();*/
@@ -911,11 +888,11 @@ bool MYCALL1 D3DInit()
 	//pd3dwnd->CreateMesh_Custom1(&backdecorate);//自创模型并保存
 	D3DXLoadMeshFromXW(L"crystal.x", D3DXMESH_MANAGED, maindevice, NULL, NULL, NULL, NULL, &backdecorate);
 	D3DXMatrixIdentity(&basemat);
-	D3DXMatrixRotationX(&basemat, PI / 2);
+	D3DXMatrixRotationX(&basemat, PI_F / 2);
 
-	pd3dwnd->CreateVertexBuffer_Custom1(&colorblock, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS);
+	/*pd3dwnd->CreateVertexBuffer_Custom1(&colorblock, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS);
 	pd3dwnd->CreateVertexBuffer_Custom1(&colorblockback
-		, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS + 2, COLOR_BLOCKBACK);
+		, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS + 2, COLOR_BLOCKBACK);*/
 
 	// 光照
 	ZeroMemory(&light, sizeof(light));
@@ -938,22 +915,22 @@ bool MYCALL1 D3DInit()
 	g_gui = new CD3DGUISystem(maindevice);
 	g_gui->Bind(pd3dwnd);
 	g_gui->SetEventProc(GUICallback);
-	g_gui->CreateDXFont(L"Consolas", &fontID1, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);
+	g_gui->AddDXFont(L"Consolas", &fontID1, 15, 0, 0, CLEARTYPE_NATURAL_QUALITY);
 
-	int bX = 6, bY = 6, bW = 58, bH = 20;
-	int bVM = 23;
-	g_gui->AddButton(BUTTON_ID_1, bX, bY, bW, bH, L"file", 0);
+	float bX = 6, bY = 6, bW = 58, bH = 20;
+	float bVM = 23;
+	g_gui->AddButton(BUTTON_ID_1, bX, bY, bW, bH, L"file");
 	bY += bVM;
-	g_gui->AddButton(BUTTON_ID_2, bX, bY, bW, bH, L"save", 0);
-	g_gui->AddButton(BUTTON_ID_3, bX, 50, bW, bH, L"full", 0, GUI_WINDOCK_RIGHT);
-	g_gui->AddEdit(INPUT_IN_1, 0, 18, 0, 20, CMDRECT_COLOR_USING, COLOR_CMD_INIT, fontID1, GUI_WINDOCK_BOTTOMHSPAN);
+	g_gui->AddButton(BUTTON_ID_2, bX, bY, bW, bH, L"save");
+	g_gui->AddButton(BUTTON_ID_3, bX, 50, bW, bH, L"full", 0xEEAAEEFF, 0, GUI_WINDOCK_RIGHT);
+	g_gui->AddEdit(INPUT_IN_1, 0, 18.0f, 0, 20.0f, CMDRECT_COLOR_USING, COLOR_CMD_INIT, fontID1, GUI_WINDOCK_BOTTOMHSPAN);
 	g_gui->HideControl(INPUT_IN_1);
 	g_gui->AddBackdrop(L"test.jpg", 0.1f, 0.3f, 0.2f, 0.2f, GUI_WINDOCK_SCALE);
 
 	return true;
 }
 
-bool MYCALL1 OnLoadFile(WCHAR file[])
+bool MYCALL1 LoadFile(WCHAR file[])
 {
 	if (!maindevice)
 	{
@@ -967,11 +944,12 @@ bool MYCALL1 OnLoadFile(WCHAR file[])
 		// 图片列表扩充 & 更新当前图片
 		piclist.Add(newpp);
 		SetTailPic();
-		surfer.SurfCenter(*pbufferw, *pbufferh);
-		surfer.SurfRenew(false);
 
-		surfrenew = true;
-		surfrenewtick = GetTickCount();
+		// TODO重复renew settailpic中也有
+		surfer.SurfCenterPR(*pbufferw, *pbufferh);
+		surfrenew = surfer.SurfRenew(false);
+		if (surfrenew)
+			surfrenewtick = GetTickCount();
 
 		return true;
 	}
@@ -980,7 +958,7 @@ bool MYCALL1 OnLoadFile(WCHAR file[])
 		delete newpp;//释放
 
 		SetForegroundWindow(mainwnd);
-		ErrorShow(hr, L"Load File", mainwnd);// 显示错误信息
+		D3DErrorShow(hr, L"Load File", mainwnd);// 显示错误信息
 
 		return false;
 	}
@@ -1011,7 +989,7 @@ bool MYCALL1 OnWininitFile(LPWSTR cmdline)
 	szArgList = CommandLineToArgvW(cmdline, &argCount);
 
 	if (argCount > 1)
-		OnLoadFile(szArgList[argCount - 1]);
+		LoadFile(szArgList[argCount - 1]);
 
 	return false;
 }
@@ -1022,7 +1000,7 @@ inline void MYCALL1 DelayFlag()
 
 	if (onzoom)
 	{
-		if (nowtick - zoomtick > FLAGDELAY_ZOOM || nowtick < zoomtick)
+		if (nowtick - zoomtick > FLAGDELAY_WHEEL || nowtick < zoomtick)
 		{
 			onzoom = false;
 			PostMessage(mainwnd, WM_MOUSEWHEELEND, 0, 0);
@@ -1090,7 +1068,7 @@ bool SetPic(short picidx)
 	mainpicpack = piclist.pLivePicPack;
 	mainbmp = piclist.pLiveBMP;
 
-	SetSurface(oldpicpack);
+	SetSurface(mainpicpack, oldpicpack);
 	SetPicInfo();
 	haspic = HasPic();
 
@@ -1100,13 +1078,13 @@ bool SetPic(short picidx)
 bool SetTailPic()
 {
 	PicPack *oldpicpack = mainpicpack; 
-	piclist.SetPicPack();
+	piclist.SetTailPicPack();
 
 	// 更新本地
 	mainpicpack = piclist.pLivePicPack;
 	mainbmp = piclist.pLiveBMP;
 
-	SetSurface(oldpicpack);
+	SetSurface(mainpicpack, oldpicpack);
 	SetPicInfo();
 	haspic = HasPic();
 
@@ -1116,13 +1094,13 @@ bool SetTailPic()
 bool SetPrevPic()
 {
 	PicPack *oldpicpack = mainpicpack;
-	piclist.GetLast();
+	piclist.SetPrev();
 
 	// 更新本地
 	mainpicpack = piclist.pLivePicPack;
 	mainbmp = piclist.pLiveBMP;
 
-	SetSurface(oldpicpack);
+	SetSurface(mainpicpack, oldpicpack);
 	SetPicInfo();
 	haspic = HasPic();
 
@@ -1132,13 +1110,13 @@ bool SetPrevPic()
 bool SetNextPic()
 {
 	PicPack *oldpicpack = mainpicpack;
-	piclist.GetNext();
+	piclist.SetNext();
 
 	// 更新本地
 	mainpicpack = piclist.pLivePicPack;
 	mainbmp = piclist.pLiveBMP;
 
-	SetSurface(oldpicpack);
+	SetSurface(mainpicpack, oldpicpack);
 	SetPicInfo();
 	haspic = HasPic();
 
@@ -1153,20 +1131,20 @@ void Drop()
 	mainpicpack = piclist.pLivePicPack;
 	mainbmp = piclist.pLiveBMP;
 
-	SetSurface(NULL);// 不解绑
+	SetSurface(mainpicpack, NULL);// 不解绑
 	SetPicInfo();
 	haspic = HasPic();
 }
 
-void SetSurface(PicPack *oldpinpack)
+void SetSurface(PicPack *newpicpack, PicPack *oldpicpack)
 {
-	if (oldpinpack)
-		surfer.DeBindPic(oldpinpack);// 解绑
-	surfer.BindPic(mainpicpack);// 捆绑
-	surfrenew = true;//标志
-	surfrenewtick = GetTickCount();
+	if (oldpicpack)
+		surfer.DeBindPic(oldpicpack);// 解绑
+	surfer.BindPic(newpicpack);// 捆绑
 
-	surfer.GetCurInfo(cursor, clientrect);// 信息
+	//标志
+	surfrenew = true;//TODO强制设置为已更新？
+	surfrenewtick = GetTickCount();
 }
 
 void SetPicInfo()
@@ -1181,9 +1159,43 @@ void SetPicInfo()
 		picinfostr[0] = L'\0';
 		SetWindowTextW(mainwnd, L"");
 	}
+	surfer.GetCurInfo(&cursor, &clientrect);//获取信息
 }
 
-void ClickDragWindow_Custom(int cursorx, int cursory)
+void PicMove(int dx, int dy)
+{
+	SF_SRFR(surfer.OnMove_Custom({ dx, dy }));
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+void PicRestore()
+{
+	POINT base;
+	base.x = cursor.x - clientrect.left;
+	base.y = cursor.y - clientrect.top;
+
+	surfer.SurfSetZoomPR(1);
+	SF_SR(surfer.SurfZoomRenew(&base, true, false));
+	SF_OZ();
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+void PicClipWindow()
+{
+	SF_SRFR(surfer.OnMove_Custom(surfer.GetSrc()));
+
+	wndrect.right = wndrect.left + surfer.GetZoomWidth() + wbias;
+	wndrect.bottom = wndrect.top + surfer.GetZoomHeight() + hbias;
+	SetWindowPos(mainwnd, HWND_TOP, wndrect.left, wndrect.top
+		, wndrect.right - wndrect.left, wndrect.bottom - wndrect.top
+		, 0);
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+void BeginDragWindow_Custom(int cursorx, int cursory)
 {
 	if (cursorx < MIDDLEXOF(clientrect) + WIDTHOF(clientrect) / 5
 		&& cursorx > MIDDLEXOF(clientrect) - WIDTHOF(clientrect) / 5
@@ -1215,7 +1227,7 @@ void KeyDownProc(WPARAM wParam)
 {
 	if (mode == MODE_PIC)
 	{
-		if (ISKEYDOWN(VK_CONTROL))
+		if (ISCONTROLDOWN)
 		{
 			switch (wParam)
 			{
@@ -1248,98 +1260,41 @@ void KeyDownProc(WPARAM wParam)
 			case 'A':
 			case VK_LEFT:
 				if (haspic)
-					surfer.OnDrag_Custom({ -1,0 });
+					PicMove(-1, 0);
 				break;
 			case 'B':	// 图片恢复原始像素
-				surfer.SurfSetZoom(1);
-				surfer.SurfZoomRenew({ cursor.x - clientrect.left,cursor.y - clientrect.top }, true, false);
-
-				onzoom = true;//设置标志
-				zoomtick = GetTickCount();
-
-				surfrenew = true;
-				surfrenewtick = GetTickCount();
-
-				break;
-			case 'C':	// 窗口调整到正好包括图像
 				if (haspic)
-				{
-					//surfer.SurfHoming();
-					//surfer.SurfRenew(false);
-					surfrenew = surfer.OnDrag_Custom(surfer.GetSrc());
-					if (surfrenew)
-					{
-						surfrenewtick = GetTickCount();
-					}
-
-					needforcerenew |= surfrenew;
-
-					wndrect.right = wndrect.left + surfer.zoomw + wbias;
-					wndrect.bottom = wndrect.top + surfer.zoomh + hbias;
-					SetWindowPos(mainwnd,HWND_TOP, wndrect.left, wndrect.top
-						, wndrect.right - wndrect.left, wndrect.bottom - wndrect.top
-						, 0);
-				}
+					PicRestore();
+				break;
+			case 'C':	// 窗口调整到正好包括图片
+				if (haspic)
+					PicClipWindow();
 				break;
 			case 'D':
 			case VK_RIGHT:
 				if (haspic)
-					surfer.OnDrag_Custom({ 1,0 });
+					PicMove(1, 0);
 				break;
 			case 'E':	// 切换信息显示
 				infoshow = !infoshow;
 				break;
 			case 'F':	// 设置标准窗口尺寸
 				if (haspic)
-				{
-					surfrenew = surfer.OnDrag_Custom(surfer.GetSrc());
-					if (surfrenew)
-					{
-						surfrenewtick = GetTickCount();
-					}
-
-					needforcerenew |= surfrenew;
-
-					FitWnd(mainbmp->width, mainbmp->height);
-				}
+					PicFitWnd();
 				break;
 			case 'I':
 				colorblockon = !colorblockon;
 				break;
 			case 'M':	// 图片居中
 				if (haspic)
-				{
-					surfer.SurfCenter(*pbufferw, *pbufferh);
-					surfer.SurfRenew(false);
-
-					surfrenew = true;
-					surfrenewtick = GetTickCount();
-				}
+					PicCenter();
 				break;
 			case 'N':
-				if (backcolor == COLOR_BKG_INIT)
-				{
-					backcolor = COLOR_BKGNIGHT;
-					//surfer.SetBackcolor(COLOR_BKGNIGHT);
-				}
-				else
-				{
-					backcolor = COLOR_BKG_INIT;
-					//surfer.SetBackcolor(COLOR_BKG_INIT);
-				}
-
+				ToggleNight();
 				break;
-			case 'Q':	// 图像放回左上角
+			case 'Q':	// 图片放回左上角
 				if (haspic)
-				{
-					surfrenew = surfer.OnDrag_Custom(surfer.GetSrc());
-					if (surfrenew)
-					{
-						surfrenewtick = GetTickCount();
-					}
-
-					needforcerenew |= surfrenew;
-				}
+					PicDock();
 				break;
 			case 'R':	// 手动渲染一次
 				Render();
@@ -1347,26 +1302,27 @@ void KeyDownProc(WPARAM wParam)
 			case 'S':
 			case VK_DOWN:
 				if (haspic)
-					surfer.OnDrag_Custom({ 0,1 });
+					PicMove(0, 1);
 				break;
 			case 'T':
-				surfer.SurfSuit(*pbufferw, *pbufferh);
+				if (haspic)
+					PicFit();
 				break;
 			case 'V':	// 手动重新生成surface一次
 				if (haspic)
 				{
-					surfer.SurfRenew(false);
+					if (!ondragzoom && !onzoom)//drazoom时按v在mousemove中刷新surface
+					{
+						SF_SR(surfer.SurfRenew(false));
 
-					surfer.GetCurInfo(cursor, clientrect);
-
-					surfrenew = true;
-					surfrenewtick = GetTickCount();
+						surfer.GetCurInfo(&cursor, &clientrect);
+					}
 				}
 				break;
 			case 'W':	// 改变窗口模式
 			case VK_UP:
 				if (haspic)
-					surfer.OnDrag_Custom({ 0,-1 });
+					PicMove(0, -1);
 				break;
 			case 'X':	// 重置收敛帧率值（重新开始计算）
 				fpscount = 0;
@@ -1435,7 +1391,7 @@ void OpenFileWin()
 	if (GetOpenFileName(&opfn))
 	{
 		// 选中文件后操作
-		OnLoadFile(openfilename);
+		LoadFile(openfilename);
 	}
 }
 
@@ -1463,7 +1419,7 @@ void SaveFileWin(WCHAR file[])
 
 	}
 	svfn.lpstrFile = savefilename;
-	svfn.lpstrFile[0] = '\0';//文件名的字段必须先把第一个字符设为\0
+	//svfn.lpstrFile[0] = '\0';
 	svfn.nMaxFile = sizeof(savefilename);
 	svfn.Flags = OFN_OVERWRITEPROMPT ;//标志位:覆盖提醒   OFN_SHOWHELP？
 	svfn.hwndOwner = mainwnd;//模态
@@ -1491,11 +1447,11 @@ void SaveFileWin(WCHAR file[])
 		//		;
 		//}
 		//else
-			OnSaveFile(savefilename);
+		SaveFile(savefilename);
 	}
 }
 
-bool OnSaveFile(WCHAR file[])
+bool SaveFile(WCHAR file[])
 {
 	if (!mainpicpack)
 	{
@@ -1628,22 +1584,48 @@ inline void MYCALL1 ExitCMDMode()
 	g_gui->HideControl(INPUT_IN_1);
 }
 
-void MYCALL1 FitWnd(int bmpwidth, int bmpheight)
+void MYCALL1 PicFitWnd()
 {
+	SF_SRFR(surfer.OnMove_Custom(surfer.GetSrc()));
+
 	wndrect.right = wndrect.left + wlimit + wbias;
-	wndrect.bottom = wndrect.top + wlimit * bmpwidth / bmpheight + hbias;
+	wndrect.bottom = wndrect.top + wlimit * mainbmp->width / mainbmp->height + hbias;
 	if (HEIGHTOF(wndrect) > hlimit)
 	{
 		wndrect.bottom = wndrect.top + hlimit + hbias;
-		wndrect.right = wndrect.left + hlimit * bmpwidth / bmpheight + wbias;
+		wndrect.right = wndrect.left + hlimit * mainbmp->width / mainbmp->height + wbias;
 	}
 
 	SetWindowPos(mainwnd, HWND_TOP, wndrect.left, wndrect.top
 		, WIDTHOF(wndrect), HEIGHTOF(wndrect)
 		, 0);
+
+	surfer.GetCurInfo(&cursor, &clientrect);
 }
 
-bool FullScreen_Windowed(bool tofull)
+void PicDock()
+{
+	SF_SRFR(surfer.OnMove_Custom(surfer.GetSrc()));
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+void PicCenter()
+{
+	surfer.SurfCenterPR(*pbufferw, *pbufferh);
+	SF_SR(surfer.SurfRenew(false));
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+void PicFit()
+{
+	SF_SR(surfer.SurfSuit(*pbufferw, *pbufferh));
+
+	surfer.GetCurInfo(&cursor, &clientrect);
+}
+
+bool FullScreen_Windowed(bool tofull, bool winchange)
 {
 	if (iswindowedfullscreen == tofull)
 		return false;
@@ -1681,6 +1663,8 @@ bool FullScreen_Windowed(bool tofull)
 		SetWindowPos(mainwnd, HWND_TOP, fullScreenRect.left, fullScreenRect.top
 			, fullScreenRect.right, fullScreenRect.bottom + 8
 			, SWP_FRAMECHANGED);//+8
+
+		g_gui->SetControlText(BUTTON_ID_3, L"small");
 	}
 	else// 取消全屏
 	{
@@ -1699,10 +1683,14 @@ bool FullScreen_Windowed(bool tofull)
 		SetWindowLong(mainwnd, GWL_STYLE, tmp);
 		purewnd = false;
 
-		//SetWindowPos比MoveWindow发送更少的消息，加速，减缓图片闪烁
-		SetWindowPos(mainwnd, HWND_TOP, originwndrect.left, originwndrect.top
-			, WIDTHOF(originwndrect), HEIGHTOF(originwndrect)
-			, SWP_FRAMECHANGED);
+		if (winchange)
+		{
+			//SetWindowPos比MoveWindow发送更少的消息，加速，减缓图片闪烁
+			SetWindowPos(mainwnd, HWND_TOP, originwndrect.left, originwndrect.top
+				, WIDTHOF(originwndrect), HEIGHTOF(originwndrect)
+				, SWP_FRAMECHANGED);
+		}
+		g_gui->SetControlText(BUTTON_ID_3, L"full");
 	}
 
 	return true;
@@ -1740,6 +1728,20 @@ void SetStaticFps(float sfps)
 	{
 		staticfps = (short)sfps;
 		staticframetime = 1000.0f / sfps;
+	}
+}
+
+void ToggleNight()
+{
+	if (backcolor == COLOR_BKG_INIT)
+	{
+		backcolor = COLOR_BKGNIGHT;
+		//surfer.SetBackcolor(COLOR_BKGNIGHT);
+	}
+	else
+	{
+		backcolor = COLOR_BKG_INIT;
+		//surfer.SetBackcolor(COLOR_BKG_INIT);
 	}
 }
 
@@ -1826,26 +1828,29 @@ bool InfoRender()
 	WCHAR infowstr[512] = { 0 };
 
 	// 图片状态信息显示
-	swprintf_s(infowstr, L"%d/%d", piclist.GetCurPos(), piclist.GetCount());fontpic->DrawTextW(NULL, infowstr, -1, &picrect, DT_RIGHT | DT_NOCLIP, COLOR_TEXT4);
+	swprintf_s(infowstr, L"%d/%d", piclist.GetCurPos(), piclist.GetCount());
+	fontpic->DrawTextW(NULL, infowstr, -1, &textrect_picnum, DT_RIGHT | DT_NOCLIP, COLOR_TEXT4);
 
 	// 第1部分信息显示（图片信息）
 	// d3dfont1->DrawTextW(100, 200, COLOR_TEXT1, infowstr0, 0);//测试高速字体绘制
-	font->DrawTextW(NULL, picinfostr, -1, &textrect0, DT_LEFT | DT_NOCLIP, COLOR_TEXT1);
+	font->DrawTextW(NULL, picinfostr, -1, &textrect_pic, DT_LEFT | DT_NOCLIP, COLOR_TEXT1);
 
 	// 窗口信息 & surfer信息
-	swprintf_s(infowstr, _T("MODE: %d\n\
+	swprintf_s(infowstr, L"MODE: %d\n\
 		FPS: %.2f/%.2f (%.2f)  %.3fms   %lld\n\
 		MEM: %.1fMB,  %.1fMB\n\
 		BUF: %d × %d\n\
-		CLIENT: %d, %d\n")
+		CLIENT: %d, %d\n\
+		PROC: %.3fms\n"
 		, mode
 		, fps, avgfps, cvgfps, frametime, loopcount
 		, memoryin, memoryout
 		, *pbufferw, *pbufferh
-		, cursor.x - clientrect.left, cursor.y - clientrect.top);
+		, cursor.x - clientrect.left, cursor.y - clientrect.top
+		, proctime);
 	wcscat_s(infowstr, L"   -    -    -    -   \n");
 	wcscat_s(infowstr, surfer.GetInfoStr());
-	font->DrawTextW(NULL, infowstr, -1, &textrect1, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
+	font->DrawTextW(NULL, infowstr, -1, &textrect_surface, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
 	//font->PreloadText();
 
 	// 附加信息
@@ -1873,14 +1878,14 @@ bool InfoRender()
 		  OUT:%lc\
 		  RENEW:%lc"
 			, yesno2[haspic]
-			, yesno2[(surfer.surf != NULL)], yesno2[onzoom]
+			, yesno2[surfer.IsSurfNotNull()], yesno2[onzoom]
 			, yesno2[dragging], yesno2[draggingzoom]
 			, yesno2[onsize], yesno2[surfer.clip]
 			, yesno2[surfer.surfclipped], yesno2[surfer.picclipped]
 			, yesno2[surfer.outsideclient], yesno2[surfrenew]);
 
 		// 第3部分信息显示
-		font2->DrawTextW(NULL, infowstr, -1, &textrect2
+		font2->DrawTextW(NULL, infowstr, -1, &textrect_flag
 			, DT_LEFT | DT_TOP | DT_NOCLIP, COLOR_TEXT3);
 	}
 
@@ -1919,7 +1924,7 @@ void MYCALL1 Render()
 	g_gui->Render();//D3DBLEND_INVSRCCOLOR,D3DBLEND_INVSRCCOLOR;D3DBLEND_ZERO,D3DBLEND_INVDESTCOLOR
 
 	// 颜色块
-	if (colorblockon && colorblock)
+	/*if (colorblockon && colorblock)
 	{
 		maindevice->SetTexture(NULL, NULL);
 
@@ -1929,7 +1934,7 @@ void MYCALL1 Render()
 		maindevice->SetStreamSource(0, colorblock, 0, sizeof(FVF2));
 		maindevice->SetFVF(FVF_2CPD);
 		maindevice->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 20);
-	}
+	}*/
 
 	maindevice->EndScene();
 	hr = maindevice->Present(NULL, NULL, NULL, NULL);
@@ -2054,6 +2059,9 @@ void CALLBACK CMDProc(WCHAR *wstr)
 
 	WCHAR initial = wstr[0];
 
+	LARGE_INTEGER s = { 0 }, e = { 0 }, freq = { 0 };
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&s);
 	if (_wcsicmp(wstr, L"quit") == 0)
 	{
 		PostMessage(mainwnd, WM_QUIT, NULL, NULL);
@@ -2083,10 +2091,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->Gray();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"loser") == 0)
@@ -2094,10 +2102,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->LOSE_R();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"loseg") == 0)
@@ -2105,10 +2113,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->LOSE_G();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"loseb") == 0)
@@ -2116,10 +2124,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->LOSE_B();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"inv") == 0)
@@ -2127,10 +2135,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->Inverse();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"inva") == 0)
@@ -2138,10 +2146,10 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->InverseAlpha();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else if (_wcsicmp(wstr, L"inv4") == 0)
@@ -2149,10 +2157,21 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		if (haspic)
 		{
 			mainbmp->InverseAll();
-			surfer.SurfRenew(false);
+			surfrenew = surfer.SurfRenew(false);
 
-			surfrenew = true;
-			surfrenewtick = GetTickCount();
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
+		}
+	}
+	else if (_wcsicmp(wstr, L"hsv") == 0)
+	{
+		if (haspic)
+		{
+			mainbmp->RGB2HSV();
+			surfrenew = surfer.SurfRenew(false);
+
+			if (surfrenew)
+				surfrenewtick = GetTickCount();
 		}
 	}
 	else
@@ -2165,19 +2184,27 @@ void CALLBACK CMDProc(WCHAR *wstr)
 
 		if (_wcsicmp(wstr, L"zoom") == 0)
 		{
-			if (haspic && num > MIN_ZOOM)
+			if (haspic && num > ZOOM_MIN)
 			{
-				surfer.SurfSetZoom(num);
-				surfer.SurfZoomRenew({ cursor.x-clientrect.left,cursor.y-clientrect.top }, true, false);//放大，调整surface位置
+				POINT base;
+				base.x = cursor.x - clientrect.left;
+				base.y = cursor.y - clientrect.top;
+				surfer.SurfSetZoomPR(num);
+				surfrenew = surfer.SurfZoomRenew(&base, true, false);//放大，调整surface位置
 				
-				onzoom = true;//设置标志
+				//标志
+				if (surfrenew)
+					surfrenewtick = GetTickCount();
+				onzoom = true;
 				zoomtick = GetTickCount();
-
-				surfrenew = true;
-				surfrenewtick = GetTickCount();
 			}
 		}
 	}
+	//获取surface信息（图片更新后，surface信息也立即更新）
+	surfer.GetCurInfo(&cursor, &clientrect);
+
+	QueryPerformanceCounter(&e);
+	proctime = 1000.0f*(e.QuadPart - s.QuadPart) / (float)freq.QuadPart;
 }
 
 //void CALLBACK TimerProc(UINT uID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)

@@ -5,7 +5,7 @@
 #include<stdlib.h>
 #include<winnt.h>
 
-#include "Pic.h"
+#include "picfile.h"
 #include "generalgeo.h"
 
 #include <d3d9.h>
@@ -22,7 +22,7 @@
 #define TRANSPARENTBACK_HOLLOWDENSITY	255
 #define TRANSPARENTBACK_FILLDENSITY		230
 
-#define RGB2GRAY(R, G, B)				((R)*38 + (G)*75 + (B)*15) >> 7
+#define RGB2GRAY(R, G, B)				(((R)*38 + (G)*75 + (B)*15) >> 7)
 
 // 内存
 #define SAFE_RELEASE(p)					{ if (p) { (p)->Release(); (p) = NULL; } }
@@ -40,17 +40,16 @@
 #define _FASTCALL						__fastcall
 #define MYCALL1							_CDECL
 
-// 图像缩放
-#define MAX_ZOOM						200
-#define MAX_CONTROLEDZOOM				0.5f
-#define MIN_ZOOM						0.0f
-#define MIN_DELTAZOOM					0.000001f
+// 图片缩放
+#define ZOOM_MAX						200
+#define ZOOM_MIN						0.0f
+#define ZOOM_MINDELTA					0.0001f
 
-#define DELTAZOOMNORMAL					0.25f
-#define DELTAZOOM1						0.002f
-#define DELTAZOOM2						0.002f
+#define ZOOMFACTOR_DRAG					0.015f //缩放灵敏度
+#define ZOOMFACTOR_WHEEL				0.025f
+#define ZOOMFACTOR_ZOOMOUTSHRINK		0.7f
 
-#define ZOOMOUT_SHRINK					0.80f
+#define ZOOM_MAXCONTROLED				0.5f
 
 // 采样策略
 #define SAMPLE_SCHEMA_UNKNOWN			0
@@ -61,25 +60,21 @@
 #define SAMPLE_SCHEMA_MAX				5
 
 #define NN_MIN							3.0f	//大于这个放大倍率使用NN采样
-#define MAXSAMPLE_WIDTH_UPPERLIMIT		20000	//大于这个尺寸图像默认不进行最大采样MAXSAMPLE
+#define MAXSAMPLE_WIDTH_UPPERLIMIT		20000	//大于这个尺寸图片默认不进行最大采样MAXSAMPLE
 #define MAXSAMPLE_HEIGHT_UPPERLIMIT		MAXSAMPLE_WIDTH_UPPERLIMIT
 
-#define MIN_NORMALRENEW_WIDTH			500		//图像小于这个尺寸，在加速renew时才允许使用SingleSample(太大缩放过程可能有卡顿)
+#define MIN_NORMALRENEW_WIDTH			500		//图片小于这个尺寸，在加速renew时才允许使用SingleSample(太大缩放过程可能有卡顿)
 #define MIN_NORMALRENEW_HEIGHT			MIN_NORMALRENEW_WIDTH
 
-#define MIN_FORCECLIP_WIDTH				1500	//图像大于这个尺寸，则设置clip。增加缩放速度
+#define MIN_FORCECLIP_WIDTH				1500	//图片大于这个尺寸，则设置clip。增加缩放速度
 #define MIN_FORCECLIP_HEIGHT			MIN_FORCECLIP_WIDTH
 
-#define MAX_NOCLIP_WIDTH_DRAG			3000	//图像小于这个尺寸，拖动图像时取消clip。增加拖动速度
+#define MAX_NOCLIP_WIDTH_DRAG			3000	//图片小于这个尺寸，拖动图片时取消clip。增加拖动速度
 #define MAX_NOCLIP_HEIGHT_DRAG			MAX_NOCLIP_WIDTH_DRAG
 
 // 图片列表
 #define PICPACKLIST_SIZE_INIT			3
 #define PICPACKLIST_SIZE_INCREMENT		2
-
-// 按键状态
-#define KEYSTATEMASK_DOWN				0x8000
-#define ISKEYDOWN(KEY)					(GetAsyncKeyState(KEY) & KEYSTATEMASK_DOWN)
 
 // 鼠标位置
 #define CURSORPOS_PIC					0
@@ -88,7 +83,9 @@
 
 // 颜色
 #define BACKCOLOR_INIT					0xFF888888
+#ifndef SETALPHA
 #define SETALPHA(C, A)					((C & 0xFFFFFF) | (A << 24))
+#endif
 
 using std::string;
 using std::bad_alloc;
@@ -104,6 +101,7 @@ inline int ceilf2i(float f)
 	else
 		return (int)f;
 }
+
 struct COLOR_F3 {
 	COLORTYPE a;
 
@@ -143,16 +141,15 @@ struct COLOR_F3 {
 
 		return res;
 	}
-	inline DWORD AlphaBlend(DWORD blender) {
-		byte alpha = (byte)a;
-		DWORD res = 0;
-		//res += (byte)round(a) << 24;
-		res += (DWORD)((r*alpha + ((blender >> 16) & 0xFF)*(255 - alpha)) / 255) << 16;
-		res += (DWORD)((g*alpha + ((blender >> 8) & 0xFF)*(255 - alpha)) / 255) << 8;
-		res += (DWORD)((b*alpha + (blender & 0xFF)*(255 - alpha)) / 255);
-
-		return res;
-	}
+	//inline DWORD AlphaBlend(DWORD blender) {
+	//	byte alpha = (byte)a;
+	//	DWORD res = 0;
+	//	//res += (byte)round(a) << 24;
+	//	res += (DWORD)((r*alpha + ((blender >> 16) & 0xFF)*(255 - alpha)) / 255) << 16;
+	//	res += (DWORD)((g*alpha + ((blender >> 8) & 0xFF)*(255 - alpha)) / 255) << 8;
+	//	res += (DWORD)((b*alpha + (blender & 0xFF)*(255 - alpha)) / 255);
+	//	return res;
+	//}
 };
 
 class ALPHABLEND {
@@ -167,7 +164,7 @@ public:
 
 	ALPHABLEND() {}
 
-	//示例
+	//内联示例
 	/*static inline DWORD AlphaBlend1(COLOR_F3 src) {
 		byte alpha = roundf2b(src.a);
 		DWORD res = 0;
@@ -202,6 +199,211 @@ public:
 
 	static void InitAlphBlendTCube();
 };
+
+inline COLOR_F3 RGB2HSV_F3(DWORD c1)
+{
+	byte *ppix = (byte*)&c1;
+	COLOR_F3 res = 0;
+	res.a = ppix[3];
+
+	byte r = ppix[2];
+	byte g = ppix[1];
+	byte b = ppix[0];
+	byte max = 0;
+	byte min = 1;
+	if (ppix[1] > ppix[0])
+	{
+		max = 1;
+		min = 0;
+	}
+	if (ppix[2] > ppix[max])
+		max = 2;
+	else if (ppix[2] < ppix[min])
+		min = 2;
+	byte minvalue = ppix[min];
+	byte maxvalue = ppix[max];
+
+	res.b = maxvalue;//v
+	res.g = (maxvalue == 0 ? 0 : 1 - minvalue / (float)maxvalue);//s
+
+	if (maxvalue == minvalue)
+		res.r = 0;
+	else
+	{
+		res.r = (maxvalue - r + g - minvalue + b - minvalue) / (float)(maxvalue - minvalue)*60.0f;
+		/*if (max == 2)
+		{
+			res.r = (60.0f * (g - b) / (maxvalue - minvalue));
+		}
+		else if (max == 1)
+		{
+			res.r = (120.0f + 60.0f * (b - r) / (maxvalue - minvalue));
+		}
+		else
+		{
+			res.r = (240.0f + 60.0f * (r - g) / (maxvalue - minvalue));
+		}*/
+	}
+	if (g < b)
+		res.r = 360 - res.r;
+	
+	return res;
+}
+
+inline DWORD RGB2HSV(DWORD c1)
+{
+	byte *ppix = (byte*)&c1;
+	DWORD res = 0;
+	BYTE* pres = (byte*)&res;
+
+	byte r = ppix[2];
+	byte g = ppix[1];
+	byte b = ppix[0];
+	byte max = 0;
+	byte min = 1;
+	if (ppix[1] > ppix[0])
+	{
+		max = 1;
+		min = 0;
+	}
+	if (ppix[2] > ppix[max])
+		max = 2;
+	else if (ppix[2] < ppix[min])
+		min = 2;
+	byte minvalue = ppix[min];
+	byte maxvalue = ppix[max];
+
+	pres[0] = maxvalue;//v
+	pres[1] = (maxvalue == 0 ? 0 : ROUND_BYTE(255.0f*(maxvalue - minvalue) / maxvalue));//s
+
+	if (maxvalue == minvalue)
+		pres[2] = 0;
+	else
+	{
+		if (max == 2)
+		{
+			pres[2] = ROUND_BYTE(255.0f * (000.0f + 60.0f * (g - b) / (maxvalue - minvalue)) / 360.0f);
+		}
+		else if (max == 1)
+		{
+			pres[2] = ROUND_BYTE(255.0f * (120.0f + 60.0f * (b - r) / (maxvalue - minvalue)) / 360.0f);
+		}
+		else
+		{
+			pres[2] = ROUND_BYTE(255.0f * (240.0f + 60.0f * (r - g) / (maxvalue - minvalue)) / 360.0f);
+		}
+	}
+	pres[3] = ppix[3];
+
+	return res;
+}
+
+inline DWORD HSV2RGB_F3(COLOR_F3 c1)
+{
+	DWORD res = 0;
+	byte* pres = (byte*)&res;
+	
+	float maxvalue = c1.b;
+	if (c1.g == 0)
+	{
+		pres[0] = ROUND_BYTE(maxvalue);
+		pres[1] = ROUND_BYTE(maxvalue);
+		pres[2] = ROUND_BYTE(maxvalue);
+	}
+	else
+	{
+		float ρ = c1.g * c1.b;
+		float minvalue = maxvalue - ρ;
+		byte nh = ROUND_BYTE(c1.r);
+		if (c1.r > 180)
+			nh = 360 - nh;
+		float λ = nh / 60.0f * ρ;
+		float r, g, b;
+		r = 2 * ρ - λ;
+		if (r < 0)
+			r = 0;
+		if (r > ρ)
+			r = ρ;
+		g = λ;
+		if (g > ρ)
+			g = ρ;
+
+		b = λ - 2 * ρ;
+		if (b < 0)
+			b = 0;
+
+		if (c1.r > 180)
+		{
+			float temp = b;
+			b = g;
+			g = temp;
+		}
+
+		pres[0] = ROUND_BYTE(b + minvalue);
+		pres[1] = ROUND_BYTE(g + minvalue);
+		pres[2] = ROUND_BYTE(r + minvalue);
+
+	}
+	pres[3] = ROUND_BYTE(c1.a);
+
+	return res;
+}
+inline DWORD HSV2RGB(DWORD c1)
+{
+	byte *ppix = (byte*)&c1;
+	DWORD res = 0;
+	byte* pres = (byte*)&res;
+
+	byte h = ppix[2];
+	byte s = ppix[1];
+	byte v = ppix[0];
+
+	byte maxvalue = v;
+	if (s == 0)
+	{
+		pres[0] = maxvalue;
+		pres[1] = maxvalue;
+		pres[2] = maxvalue;
+	}
+	else
+	{
+		float ρ = s * v / 255.0f;
+		float minvalue = maxvalue - ρ;
+		byte nh = h;
+		if (h >= 128)
+			nh = 255 - h;
+		float λ = nh * 6 / 255.0f * ρ;
+		float r, g, b;
+		r = 2 * ρ - λ;
+		if (r < 0)
+			r = 0;
+		if (r > ρ)
+			r = ρ;
+		g = λ;
+		if (g > ρ)
+			g = ρ;
+
+		b = λ - 2 * ρ;
+		if (b < 0)
+			b = 0;
+
+		if (h >= 128)
+		{
+			float temp = b;
+			b = g;
+			g = temp;
+		}
+
+		pres[0] = ROUND_BYTE(b + minvalue);
+		pres[1] = ROUND_BYTE(g + minvalue);
+		pres[2] = ROUND_BYTE(r + minvalue);
+
+	}
+	pres[3] = ppix[3];
+
+	return res;
+}
+
 class BMP {
 private:
 	/*static void __cdecl newhandlerfunc()
@@ -227,8 +429,8 @@ public:
 	 */
 	/***************************************************
 	目标地址空间，每行pitch，目标地址尺寸
-	surfbias:surf相对原图偏移（用于原图选区）
-	backbase:surf相对client窗口（用于辅助透明背景绘制）
+	surfbias:surface相对原图偏移（用于原图选区）
+	backbase:surface相对client窗口（用于辅助透明背景绘制）
 
 	双线性插值的两种策略（有色差，无色差）在Copy_Single中详细定义
 	****************************************************/
@@ -779,7 +981,7 @@ public:
 				{
 					index = i*pitch + j;
 
-					// 对应原图像素位置
+					// 对应原图片素位置
 					float frontx = xsto[j];
 					float frontxbias = frontx - (int)frontx;
 					/*if (frontx < 0)
@@ -918,7 +1120,7 @@ public:
 
 				for (int j = 0; j < surfsize.x; j++)
 				{
-					// 对应原图像素位置
+					// 对应原图片素位置
 					float frontx = xsto[j];
 					float frontxbias = frontx - (int)frontx;
 					/*if (frontx < 0)
@@ -987,6 +1189,8 @@ public:
 	bool MYCALL1 LOSE_G();
 	bool MYCALL1 LOSE_B();
 
+	bool MYCALL1 RGB2HSV();
+
 	// 信息
 	inline bool MYCALL1 GetPixel(int x, int y, DWORD *dest)
 	{
@@ -1021,7 +1225,7 @@ string GetFMTStr(D3DFORMAT);
 
 class PicPack {
 private:
-	BMP bmp;
+	BMP *bmp;
 	PicInfo myimginfo;				//图片信息
 	D3DXIMAGE_INFO d3dimginfo;		//自定图片信息
 	WCHAR strFileName[MAX_PATH];	//文件名
@@ -1041,11 +1245,11 @@ public:
 
 	inline bool isEmpty()
 	{
-		return bmp.isEmpty();
+		return bmp->isEmpty();
 	}
 	inline bool isNotEmpty()
 	{
-		return bmp.isNotEmpty();
+		return bmp->isNotEmpty();
 	}
 	inline float GetZoom()
 	{
@@ -1065,7 +1269,7 @@ public:
 	}
 	inline BMP* GetPBMP()
 	{
-		return &bmp;
+		return bmp;
 	}
 	WCHAR *GetFileName();
 
@@ -1095,9 +1299,9 @@ public:
 	int GetCurPos();
 	int GetCount();
 	PicPack *SetPicPack(int idx);
-	PicPack *SetPicPack();
-	PicPack *GetLast();
-	PicPack *GetNext();
+	PicPack *SetTailPicPack();
+	PicPack *SetPrev();
+	PicPack *SetNext();
 	PicPack *Drop();
 	bool Add(PicPack *newpp);
 };
@@ -1105,19 +1309,22 @@ public:
 /*********************************************
 *********************************************/
 struct Surfer {
-public:
+private:
 	LPDIRECT3DSURFACE9 surf;				//surface
 	LPDIRECT3DDEVICE9 pdev;					//设备指针·捆绑
-	BMP *pbmp;								//BMP指针·加速·捆绑
-	int *pbmpw, *pbmph;						//BMP尺寸·加速
-	UINT *pbufw, *pbufh;					//目标surface尺寸·加速
-	bool haspic, hasdevice, hasboth;
+	BMP *pbmp;								//BMP指针·捆绑
+	int *pbmpw, *pbmph;						//BMP尺寸·捆绑
+	UINT *pbufw, *pbufh;					//目标surface尺寸·捆绑
+	bool haspic, hasdevice, hasboth;		//是否具备捆绑值（捆绑对象）
 
+public:
+	// 信息
 	//int surfrenewcount;					//surface更新计数
 	float renewtime;						//surface更新耗时
 	UINT8 sampleschema;						//采样策略
 	WCHAR surferinfostr[512];				//信息字符串
 
+	// 计时
 	LARGE_INTEGER wheeltick, lastwheeltick;	//滚轮计时
 	LARGE_INTEGER freq;						//频率
 
@@ -1129,15 +1336,15 @@ public:
 
 	// "BMP" 映射 "SURFACE" 选项
 	bool clip;								//surface是否clip（截去客户区外区域）
-	D3DCOLOR backcolor;						//背景色（暂时没用）
+	DWORD backcolor;						//背景色（暂时没用）
 	// "BMP" 映射 "SURFACE" 参数
 	float surfzoom;							//直接操控的放大倍数
 	float oldsurfzoom;						//上一个放大倍数
-	int zoomw, zoomh;						//放大surfzoom倍后假想surface的尺寸，【减少临时运算量】
+	int zoomw, zoomh;						//放大surfzoom倍后假想surface的尺寸，【减少临时运算量，需要手动同步更新】(需要手动更新场合：缩放，捆绑图片)
 
 	// "BMP" 映射 "SURFACE" 状态
 	float actualzoomx, actualzoomy;			//实际x,y方向上的放大倍数【这个标志暂时只用来查看】
-	bool surffailed;						//surface是否创建失败，在有mainbmp情况下【这个标志暂时只用来查看】
+	bool surffailed;						//surface是否创建失败，在有mainbmp情况下【这个标志暂时只用来查看，需要手动同步更新】
 	bool surfclipped;						//当前surface是否clip
 
 	// "源SURFACE" 映射 "目标SURFACE" 参数
@@ -1157,125 +1364,189 @@ public:
 	DWORD picpixelcolor;					//鼠标当前位置对应原图的颜色
 	UINT8 cursorpos;						//当前鼠标位置（种类，处于哪个区域：图片、空白、窗口外）
 
-	void CalcBindSituation();
+	void CalcBindSituation();				// 更新捆绑标志（捆绑的状态）
+	//void Refresh();							//【haspic】更新已捆绑的图片关键信息(zoomw,zoomh)【原图片尺寸变化时需要更新】
+
+private:
+	// 【hasdevice】计算映射到目标surface参数
+	inline void SurfCalcMapInfo()
+	{
+		if (hasdevice)
+		{
+			//计算surfrect和surfbase
+			//surfbase：surface拷贝到backbuffer起点，创建surface时计算过，还需要实时计算
+			if (surfsrc.x > 0)
+				surfbase.x = 0;
+			else
+				surfbase.x = -surfsrc.x;
+			if (surfsrc.y > 0)
+				surfbase.y = 0;
+			else
+				surfbase.y = -surfsrc.y;
+
+			if (clip)
+			{
+				surfrect.left = 0;
+				surfrect.top = 0;
+				surfrect.right = min((int)*pbufw - surfbase.x, surfsize.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
+				surfrect.bottom = min((int)*pbufh - surfbase.y, surfsize.y);
+			}
+			else
+			{
+				surfrect.left = max(surfsrc.x, 0);//如果起始点surfsrc某一维小于0，则平移区域到0起点，并设置destpoint为非0
+				surfrect.top = max(surfsrc.y, 0);
+				surfrect.right = min(zoomw, surfrect.left + (int)*pbufw - surfbase.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
+				surfrect.bottom = min(zoomh, surfrect.top + (int)*pbufh - surfbase.y);
+			}
+		}
+	}
+
 public:
 	Surfer();
 	~Surfer();
 
-	inline POINT GetSrc()
+	inline bool IsSurfNull() const
+	{
+		return surf == NULL;
+	}
+	inline bool IsSurfNotNull() const
+	{
+		return surf != NULL;
+	}
+	inline POINT GetSrc() const
 	{
 		return surfsrc;
 	}
-	inline float GetZoom()
+	inline float GetZoom() const
 	{
 		return surfzoom;
 	}
+	inline int GetZoomWidth() const
+	{
+		return zoomw;
+	}
+	inline int GetZoomHeight() const
+	{
+		return zoomh;
+	}
+
 // 设备
 	bool BindDevice(LPDIRECT3DDEVICE9 device);//捆绑设备
 	bool BindBuf(UINT * bufw, UINT *bufh);	//捆绑目标surface尺寸
-	void SetBackcolor(D3DCOLOR bc);			
+	void SetBackcolor(DWORD bc);			//设置背景颜色
 
 // 图片
-	bool BindPic(PicPack *ppic, bool renew = true, bool debind = true);//捆绑图片
-	bool DeBindPic(PicPack *ppic);						//解绑图片
-	void Refresh();//【haspic】更新已捆绑的图片关键信息(zoomw,zoomh)【图像尺寸变化时必须更新】
+	bool BindPic(PicPack *ppic, bool renew = true, bool debind = true);//捆绑图片（可以捆绑NULL来清除，或加载/切换图片）
+	bool DeBindPic(PicPack *ppic);			//解绑图片
 	void Clear();							// 清除,释放与图片的捆绑
 	
-// surface定位操作
+// surface刷新前操作，定位缩放操作的参数准备
 	void SetBasePoint(POINT bp);
-	inline void SurfHoming()
+	inline void SurfHomingPR()
 	{
 		surfsrc.x = 0;
 		surfsrc.y = 0;
 	}											//surface回原点
-	inline void SurfLocate(LONG x, LONG y)		//surface定位
+	inline void SurfLocatePR(LONG x, LONG y)		//surface定位
 	{
 		surfsrc.x = x;
 		surfsrc.y = y;
 	}
-	inline void SurfCenter(int bufferw, int bufferh)
+	//surface居中（相对目标surface）
+	inline void SurfCenterPR(int bufferw, int bufferh)
 	{
-		if (zoomw <= bufferw
-			&& zoomh <= bufferh)
-		{
 			surfsrc.x = (LONG)(zoomw / 2 - bufferw / 2);
 			surfsrc.y = (LONG)(zoomh / 2 - bufferh / 2);
-		}
-		else
-		{
-			surfsrc.x = 0;
-			surfsrc.y = 0;
-		}
-	}					//surface居中（相对目标surface）
-	inline void SurfMove(int dx, int dy)
+	}
+	//surface移动，不带surface更新，外部条件更新
+	inline void SurfMovePR(int dx, int dy)
 	{
 		surfsrc.x -= dx;
 		surfsrc.y -= dy;
-	}								//surface移动，不带surface更新，外部条件更新
-	inline void SurfSetZoom(float z)
+	}
+	// 设置surface缩放倍率
+	inline void SurfSetZoomPR(float z)
 	{
 		surfzoom = z;
 	}
-	// 设置surface缩放倍率	
-	inline void SurfAdjustZoom_normal1(int wParam)
+	//（仅用于以一定规则调整缩放倍率的值，实际缩放需要另一个函数，在另一个函数中使用调整后的倍率）
+	inline void SurfAdjustZoom_dragPR(int wParam)
 	{
 		float adds = 0;
 		QueryPerformanceCounter(&wheeltick);
 
-		adds = (float)((DELTAZOOMNORMAL*surfzoom));//增长速度与时间和放大倍率有关
+		//变化量相关于时间和当前放大倍率（后来取消时间关联）
+		adds = ZOOMFACTOR_DRAG*surfzoom;
 		lastwheeltick.QuadPart = wheeltick.QuadPart;
 
-		adds *= wParam / 120.0f;
+		//拖动倍率
+		adds *= wParam;		
+
+		//放大缩小速度平衡
 		if (adds < 0)
-			adds *= ZOOMOUT_SHRINK;//放大缩小一致化
+			adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
+
+		//最小变化值
+		if (wParam > 0 && adds < ZOOM_MINDELTA)
+			adds = ZOOM_MINDELTA;
+		else if (wParam < 0 && adds > -ZOOM_MINDELTA)
+			adds = -ZOOM_MINDELTA;
 
 		surfzoom += adds;
 		//zoom上下限
-		if (surfzoom > MAX_ZOOM)
-			surfzoom = MAX_ZOOM;
-		if (surfzoom < 0)
-			surfzoom = 0;
+		if (surfzoom > ZOOM_MAX)
+			surfzoom = ZOOM_MAX;
+		if (surfzoom < ZOOM_MIN)
+			surfzoom = ZOOM_MIN;
 	}
-	inline void SurfAdjustZoom_wheel(int wParam)
+	inline void SurfAdjustZoom_wheelPR(int wParam)
 	{
 		float adds = 0;
 		QueryPerformanceCounter(&wheeltick);
 
-		if (surfzoom < 1)
-			adds = (float)(freq.QuadPart / (wheeltick.QuadPart - lastwheeltick.QuadPart)
-				*(DELTAZOOM1*surfzoom)) + MIN_DELTAZOOM;//增长速度与时间和放大倍率有关
-		else
-			adds = (float)(freq.QuadPart / (wheeltick.QuadPart - lastwheeltick.QuadPart)
-				*(DELTAZOOM2*surfzoom)) + MIN_DELTAZOOM;//增长速度与时间和放大倍率有关
+		//变化量相关于时间和当前放大倍率
+		adds = (sqrtf(freq.QuadPart / (float)(wheeltick.QuadPart - lastwheeltick.QuadPart))
+			*(ZOOMFACTOR_WHEEL*surfzoom));
 		lastwheeltick.QuadPart = wheeltick.QuadPart;
 
+		//滚轮幅度倍率（正负表示滚轮方向）
 		adds *= wParam / 120.0f;
+
+		//放大缩小速度平衡
 		if (adds < 0)
-			adds *= ZOOMOUT_SHRINK;//放大缩小一致化
+			adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
+
+		//最小变化值
+		if (wParam > 0 && adds < ZOOM_MINDELTA)
+			adds = ZOOM_MINDELTA;
+		else if (wParam < 0 && adds > -ZOOM_MINDELTA)
+			adds = -ZOOM_MINDELTA;
 
 		surfzoom += adds;
 		//zoom上下限
-		if (surfzoom > MAX_ZOOM)
-			surfzoom = MAX_ZOOM;
-		if (surfzoom < 0)
-			surfzoom = 0;
+		if (surfzoom > ZOOM_MAX)
+			surfzoom = ZOOM_MAX;
+		if (surfzoom < ZOOM_MIN)
+			surfzoom = ZOOM_MIN;
 		/*if (surfzoom*min(*pbmpw, *pbmph) < 1)
-			surfzoom = 1.00001f / min(*pbmpw, *pbmph);//控制surface尺寸>0*/
+		surfzoom = 1.00001f / min(*pbmpw, *pbmph);//控制surface尺寸>0*/
 	}
 
-	// 【hasboth】根据调整值调整缩放倍率，更新映射参数
-	inline void SurfZoomRenew(float zoom = -1, int dx = 0, int dy = 0)
+//surface缩放（强制捆绑刷新操作）
+	// 【hasboth】根据调整值缩放，并设定位移量，更新映射参数，返回surface是否刷新
+	inline bool SurfZoomRenew(float zoom = -1, int dx = 0, int dy = 0)
 	{
 		if (hasboth)
 		{
 			if (oldsurfzoom == zoom && dx == 0 && dy == 0)
-				return;
+				return false;
 
 			surfsrc.x += dx;
 			surfsrc.y += dy;
 
 			if (zoom >= 0)
 				surfzoom = zoom;
+
 			zoomw = (int)(surfzoom**pbmpw);
 			zoomh = (int)(surfzoom**pbmph);
 			actualzoomx = (float)zoomw / *pbmpw;
@@ -1286,20 +1557,25 @@ public:
 
 			oldsurfzoom = surfzoom;
 
-			SurfRenew(false);
+			return SurfRenew(false);
 		}
+		else
+			return false;
 	}
-	inline void SurfZoomRenew(POINT client2cursor, bool stable = false, bool acce = false)
+	// 【hasboth】根据已设定的缩放倍率值缩放，更新映射参数，返回surface是否刷新
+	inline bool SurfZoomRenew(POINT *client2cursor, bool stable = false, bool acce = false)
 	{
 		if (hasboth)
 		{
 			if (oldsurfzoom == surfzoom)
-				return;
+				return false;
+
+			if (!client2cursor)//如果参数没提供基准点，就用basepoint作为基准点
+				client2cursor = &basepoint;
 
 			int oldzoomw = zoomw, oldzoomh = zoomh;
 			zoomw = (int)(surfzoom**pbmpw);
 			zoomh = (int)(surfzoom**pbmph);
-
 			actualzoomx = (float)zoomw / *pbmpw;
 			actualzoomy = (float)zoomh / *pbmph;
 
@@ -1307,7 +1583,7 @@ public:
 				, oldsheight = (UINT)(*pbmph*oldsurfzoom);
 
 			//调整起始点#1
-			if (ISKEYDOWN(VK_MENU) || stable)
+			if (stable)
 			{
 				surfsrc.x = (LONG)(zoomw / 2) - oldzoomw / 2 + surfsrc.x;
 				surfsrc.y = (LONG)(zoomh / 2) - oldzoomh / 2 + surfsrc.y;
@@ -1315,19 +1591,19 @@ public:
 			else
 			{
 				POINT surf2cursor;
-				surf2cursor.x = surfsrc.x + client2cursor.x;
-				surf2cursor.y = surfsrc.y + client2cursor.y;
+				surf2cursor.x = surfsrc.x + client2cursor->x;
+				surf2cursor.y = surfsrc.y + client2cursor->y;
 
 				float tempf = (float)surf2cursor.x*surfzoom / oldsurfzoom;//平滑方式
 				if (tempf > 0)
-					surfsrc.x = (LONG)(tempf + 0.5f) - client2cursor.x;
+					surfsrc.x = (LONG)(tempf + 0.5f) - client2cursor->x;
 				else
-					surfsrc.x = (LONG)(tempf - 0.5f) - client2cursor.x;
+					surfsrc.x = (LONG)(tempf - 0.5f) - client2cursor->x;
 				tempf = (float)surf2cursor.y*surfzoom / oldsurfzoom;//平滑方式
 				if (tempf > 0)
-					surfsrc.y = (LONG)(tempf + 0.5f) - client2cursor.y;
+					surfsrc.y = (LONG)(tempf + 0.5f) - client2cursor->y;
 				else
-					surfsrc.y = (LONG)(tempf - 0.5f) - client2cursor.y;
+					surfsrc.y = (LONG)(tempf - 0.5f) - client2cursor->y;
 			}
 
 			//如果在放大阶段，窗口客户区可以完全容纳surface，则控制surface显示区域
@@ -1335,7 +1611,7 @@ public:
 			if (zoomw <= (int)*pbufw
 				&& zoomh <= (int)*pbufh
 				&& surfzoom > oldsurfzoom
-				&& surfzoom < MAX_CONTROLEDZOOM)
+				&& surfzoom < ZOOM_MAXCONTROLED)
 			{
 				if (surfsrc.x > 0)
 					surfsrc.x = 0;
@@ -1353,13 +1629,17 @@ public:
 
 			oldsurfzoom = surfzoom;
 
-			SurfRenew(acce);
+			return SurfRenew(acce);
 		}
+		else
+			return false;
 	}
 
-	// 【hasboth】surface更新
+//surface刷新
+	// 【hasboth】surface刷新，返回surface是否刷新
 	inline bool SurfRenew(bool acce = false)
 	{
+		bool renewed = false;
 		if (hasboth)
 		{
 			LARGE_INTEGER start, end;
@@ -1504,6 +1784,8 @@ public:
 					}
 				}
 				surf->UnlockRect();
+
+				renewed = true;//设置更新标志
 			}
 
 			if (surf)
@@ -1520,56 +1802,23 @@ public:
 
 				QueryPerformanceCounter(&end);
 				renewtime = (float)(end.QuadPart - start.QuadPart) / freq.QuadPart;
-				return true;
 			}
 			else
 			{
 				surffailed = true;
-
-				return false;
 			}
 		}
-		else
-			return false;
+		
+		return renewed;
 	}
-	// 【hasdevice】计算映射到目标surface参数
-	inline void SurfCalcMapInfo()
-	{
-		if (hasdevice)
-		{
-			//计算surfrect和surfbase
-			//surfbase：surface拷贝到backbuffer起点，创建surface时计算过，还需要实时计算
-			if (surfsrc.x > 0)
-				surfbase.x = 0;
-			else
-				surfbase.x = -surfsrc.x;
-			if (surfsrc.y > 0)
-				surfbase.y = 0;
-			else
-				surfbase.y = -surfsrc.y;
 
-			if (clip)
-			{
-				surfrect.left = 0;
-				surfrect.top = 0;
-				surfrect.right = min((int)*pbufw - surfbase.x, surfsize.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
-				surfrect.bottom = min((int)*pbufh - surfbase.y, surfsize.y);
-			}
-			else
-			{
-				surfrect.left = max(surfsrc.x, 0);//如果起始点surfsrc某一维小于0，则平移区域到0起点，并设置destpoint为非0
-				surfrect.top = max(surfsrc.y, 0);
-				surfrect.right = min(zoomw, surfrect.left + (int)*pbufw - surfbase.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
-				surfrect.bottom = min(zoomh, surfrect.top + (int)*pbufh - surfbase.y);
-			}
-		}
-	}
-	// 【hasboth】自定义拖拽事件处理
-	inline bool OnDrag_Custom(POINT cursorbias)
+//surface定制操作
+	// 【hasboth】自定义拖拽事件处理(根据clip，surface位置等状态自动处理surface是否更新)，返回surface是否刷新
+	inline bool OnMove_Custom(POINT cursorbias)
 	{
 		if (hasboth)
 		{
-			SurfMove(cursorbias.x, cursorbias.y);
+			SurfMovePR(cursorbias.x, cursorbias.y);
 
 			bool lastpicclipped = picclipped;
 			picclipped = (
@@ -1616,7 +1865,7 @@ public:
 		else
 			return false;
 	}
-	// 【hasboth】自定义窗口拉伸事件处理
+	// 【hasboth】自定义窗口拉伸事件处理(根据clip，surface位置等状态自动处理surface是否更新)，返回surface是否刷新
 	inline bool OnWinsize_Custom()//和ondrag差不多
 	{
 		if (hasboth)
@@ -1667,19 +1916,21 @@ public:
 			return false;
 	}
 	// 【hasboth】
-	inline void SurfSuit(int w, int h)
+	inline bool SurfSuit(int w, int h)
 	{
 		if (hasboth)
 		{
 			if (w < 1 || h < 1)
-				return;
+				return false;
 
-			SurfZoomRenew(min((float)w / *pbmpw, (float)h / *pbmph), -surfsrc.x, -surfsrc.y);
+			return SurfZoomRenew(min((float)w / *pbmpw, (float)h / *pbmph), -surfsrc.x, -surfsrc.y);
 		}
+		else
+			return false;
 	}
 
 // 【surf】渲染
-	inline HRESULT Render()
+	inline HRESULT Render() const
 	{
 		if (surf && !outsideclient)
 		{
@@ -1703,24 +1954,25 @@ public:
 	}
 
 // 信息
-	inline WCHAR *GetInfoStr()
+	//获得信息字符串
+	inline const WCHAR *GetInfoStr() const
 	{
 		return surferinfostr;
 	}
+	//记录当前状态信息（更新字符串）
 	inline void SetInfoStr()
 	{
 		WCHAR subinfo[256] = { 0 };
 		surferinfostr[0] = L'\0';
 
 		// buffer尺寸、surface尺寸
-		swprintf_s(subinfo, _T("SURFACE: %d × %d     TIME: %.3fms (%S)\n\
-		ZOOM: %.4f\n")
+		// 缩放倍率
+		// surface起始点
+		swprintf_s(subinfo, L"SURFACE: %d × %d     TIME: %.3fms (%S)\n\
+		ZOOM: %.4f\n\
+		BASE: %d, %d\n"
 			, surfsize.x, surfsize.y, renewtime*1000.0f, GetSampleSchemaStr()
-			, surfzoom);
-		wcscat_s(surferinfostr, subinfo);
-
-		// surface起始点、clipsurface起始点
-		swprintf_s(subinfo, _T("BASE: %d, %d\n")
+			, surfzoom
 			, -surfsrc.x, -surfsrc.y);
 		wcscat_s(surferinfostr, subinfo);
 
@@ -1728,17 +1980,25 @@ public:
 		if (pbmp)
 		{
 			if (pbmp->isNotEmpty())
-				swprintf_s(subinfo, _T("PIXEL: %d, %d\n"), picpixel.x, picpixel.y);
+				swprintf_s(subinfo, L"PIXEL: %d, %d\n", picpixel.x, picpixel.y);
 			else
-				swprintf_s(subinfo, _T("PIXEL:-, -\n"));
+				swprintf_s(subinfo, L"PIXEL:-, -\n");
 		}
 		else
-			swprintf_s(subinfo, _T("PIXEL:-, -\n"));
+			swprintf_s(subinfo, L"PIXEL:-, -\n");
 		wcscat_s(surferinfostr, subinfo);
 
 		// 鼠标像素颜色、屏幕像素颜色、背景色
-		swprintf_s(subinfo, _T("COLOR: %02X.%06X.ARGB\n")
-			, (picpixelcolor >> 24), (picpixelcolor & 0xFFFFFF));
+		COLOR_F3 hsvc = RGB2HSV_F3(picpixelcolor);
+		if (pixelcolorvalid)
+			swprintf_s(subinfo, L"COLOR: #%02X.%06X.ARGB\n\
+			              %d, %d, %d, %d.ARGB\n\
+			              %.1f, %.2f, %.0f.HSV\n"
+				, (picpixelcolor >> 24), (picpixelcolor & 0xFFFFFF)
+				, (picpixelcolor >> 24), (picpixelcolor >> 16) & 0xFF, (picpixelcolor >> 8) & 0xFF, picpixelcolor & 0xFF
+				, hsvc.r, hsvc.g, hsvc.b);
+		else
+			swprintf_s(subinfo, L"COLOR: ??.??????.ARGB\n");
 		wcscat_s(surferinfostr, subinfo);
 
 		// 附加信息
@@ -1750,14 +2010,18 @@ public:
 		//	, actualzoomx, actualzoomy
 
 	}
-	inline void GetCurInfo(POINT cursor, RECT clientrect)
+	//更新当前信息（当前鼠标位置对应图片的像素）和信息字符串
+	inline void GetCurInfo(POINT *cursor, RECT *clientrect)
 	{
 		if (haspic)
 		{
+			if (!cursor || !clientrect)
+				return;
+
 			// 获得当前鼠标位置（种类）
-			POINT surf2cursor = { surfsrc.x + cursor.x - clientrect.left
-				,surfsrc.y + cursor.y - clientrect.top };
-			if (OUTSIDE(cursor, clientrect))
+			POINT surf2cursor = { surfsrc.x + cursor->x - clientrect->left
+				,surfsrc.y + cursor->y - clientrect->top };
+			if (OUTSIDE(*cursor, *clientrect))
 				cursorpos = CURSORPOS_OUTWINDOW;
 			else if (!surf)
 				cursorpos = CURSORPOS_BLANK;
@@ -1783,7 +2047,8 @@ public:
 			// 更新信息字符串
 			SetInfoStr();
 		}
-	}//获取当前鼠标位置对应图片的像素
+	}
+	//获得上一次生成surface的采样算法
 	inline char *GetSampleSchemaStr()
 	{
 		switch (sampleschema)
