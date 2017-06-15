@@ -29,3 +29,4 @@ d3dgui一个控件阻塞控制
 增加mousewheelend用户自定义事件
 CGUIControl改为虚函数封装类
 添加控件中任何失败路径都正确处理
+d3dgui和gdigui整合

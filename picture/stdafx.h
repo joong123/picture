@@ -19,6 +19,7 @@
 #include <afxwin.h>         // MFC 核心组件和标准组件
 #include <afxext.h>         // MFC 扩展
 #endif // USE_GDIGUI
+
 #include <windows.h>
 #include <atltypes.h>
 
@@ -43,10 +44,3 @@ struct memDCBMP
 CBitmap *MyDrawPrepareOne(CDC *pDC, memDCBMP *mDC, int x, int y, CRect &r);
 void DeleteMemDCBMP(memDCBMP *mDC);
 #endif // USE_GDIGUI
-
-inline float roundf2f(float f) {
-	if (f < 0)
-		return (float)(int)(f - 0.5f);
-	else
-		return (float)(int)(f + 0.5f);
-}

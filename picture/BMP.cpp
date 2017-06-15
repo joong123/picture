@@ -19,7 +19,7 @@ BMP::BMP()
 	height = 0;
 
 	data = NULL;
-	alphaon = false;
+	bAlpha = false;
 }
 
 BMP::~BMP()
@@ -36,7 +36,7 @@ BMP::~BMP()
 
 void BMP::SetAlpha(bool alpha)
 {
-	alphaon = alpha;
+	bAlpha = alpha;
 }
 
 bool BMP::Load(LPDIRECT3DSURFACE9 surf)
@@ -297,59 +297,59 @@ void MYCALL1 BMP::Clear()
 	height = 0;
 }
 
-void Surfer::CalcBindSituation()
+void Surfer::CalcBindState()
 {
-	haspic = pbmp && pbmpw && pbmph;
-	hasdevice = pdev && pbufw && pbufh;
-	hasboth = hasdevice && haspic;
+	bHasPic = pBmp && pBmpW && pBmpH;
+	bHasDevice = pDevice && pBufferW && pBufferH;
+	bHasBoth = bHasDevice && bHasPic;
 }
 
 Surfer::Surfer() {
 	surf = NULL;
-	pdev = NULL;
-	pbmp = NULL;
-	pbmpw = NULL;
-	pbmph = NULL;
-	pbufw = NULL;
-	pbufh = NULL;
-	haspic = false;
-	hasdevice = false;
-	hasboth = false;
+	pDevice = NULL;
+	pBmp = NULL;
+	pBmpW = NULL;
+	pBmpH = NULL;
+	pBufferW = NULL;
+	pBufferH = NULL;
+	bHasPic = false;
+	bHasDevice = false;
+	bHasBoth = false;
 
 	//surfrenewcount = 0;
-	renewtime = -0.001f;
-	sampleschema = SAMPLE_SCHEMA_UNKNOWN;
-	surferinfostr[0] = (WCHAR)'\0';
+	renewTime = -0.001f;
+	sampleSchema = SAMPLE_SCHEMA_UNKNOWN;
+	surferInfoStr[0] = (WCHAR)'\0';
 
 	QueryPerformanceFrequency(&freq);
 	wheeltick.QuadPart = 0;
 	lastwheeltick.QuadPart = 0;
 
-	clip = true;
-	backcolor = BACKCOLOR_INIT;
-	surfzoom = 1.0f;
-	oldsurfzoom = 1.0f;
-	actualzoomx = 1.0f;
-	actualzoomy = 1.0f;
-	zoomw = 0;
-	zoomh = 0;
+	bClip = true;
+	BackgroundColor = BACKCOLOR_INIT;
+	surfZoom = 1.0f;
+	lastSurfZoom = 1.0f;
+	actualZoomX = 1.0f;
+	actualZoomY = 1.0f;
+	zoomW = 0;
+	zoomH = 0;
 
-	surffailed = true;
-	surfclipped = false;
+	bSurfFailed = true;
+	bSurfClipped = false;
 
-	ZEROPOINT(surfsrc)
-	ZEROPOINT(basepoint)
-	ZEROPOINT(surfbase)
-	ZERORECT(surfrect)
+	ZEROPOINT(surfBase)
+	ZEROPOINT(basePoint)
+	ZEROPOINT(surfDest)
+	ZERORECT(rcSurf)
 
-	ZEROPOINT(surfsize)
-	picclipped = false;
-	outsideclient = false;
+	ZEROPOINT(surfSize)
+	bPicClipped = false;
+	bOutClient = false;
 
-	SETPOINT(picpixel, -1, -1)
-	pixelcolorvalid = false;
-	picpixelcolor = 0;
-	cursorpos = CURSORPOS_BLANK;
+	SETPOINT(cursorPixel, -1, -1)
+	bCursorOnPic = false;
+	cursorColor = 0;
+	cursorPos = CURSORPOS_BLANK;
 	
 	// alphablend表初始化
 	ALPHABLEND::InitAlphBlendTable(TRANSPARENTBACK_FILLDENSITY, TRANSPARENTBACK_HOLLOWDENSITY);
@@ -365,70 +365,71 @@ Surfer::~Surfer()
 
 bool Surfer::BindDevice(LPDIRECT3DDEVICE9 device)
 {
-	pdev = device;
+	pDevice = device;
 
-	CalcBindSituation();
+	CalcBindState();
 
-	return pdev != NULL;
+	return pDevice != NULL;
 }
 
-bool Surfer::BindBuf(UINT * bufw, UINT * bufh)
+bool Surfer::BindBuf(UINT * pBufW, UINT * pBufH)
 {
-	pbufw = bufw;
-	pbufh = bufh;
+	pBufferW = pBufW;
+	pBufferH = pBufH;
 
-	CalcBindSituation();
+	CalcBindState();
 
-	return pbufw && pbufh;
+	return pBufferW && pBufferH;
 }
 
-void Surfer::SetBackcolor(DWORD bc)
+void Surfer::SetBackcolor(DWORD color)
 {
-	backcolor = bc;
+	BackgroundColor = color;
 }
 
-bool Surfer::BindPic(PicPack * ppic, bool renew, bool debind)
+bool Surfer::BindPic(PicPack * ppic, bool renew)
 {
 	if (ppic)
 	{
 		// 捆绑指针
-		pbmp = ppic->GetPBMP();
-		pbmpw = &pbmp->width;
-		pbmph = &pbmp->height;
+		pBmp = ppic->GetPBMP();
+		pBmpW = &pBmp->width;
+		pBmpH = &pBmp->height;
 
 		// 信息导入
-		surfsrc = ppic->GetSrc();
-		surfzoom = ppic->GetZoom();
-		oldsurfzoom = surfzoom;
+		surfBase = ppic->GetBase();
+		surfZoom = ppic->GetZoom();
+		lastSurfZoom = surfZoom;
 
-		//zoomw, zoomh更新
-		zoomw = (int)(surfzoom**pbmpw);
-		zoomh = (int)(surfzoom**pbmph);
-		actualzoomx = (float)zoomw / *pbmpw;
-		actualzoomy = (float)zoomh / *pbmph;
+		//zoomW, zoomH更新，这些之后未必重新计算，在这里需要计算
+		zoomW = (int)(surfZoom**pBmpW);
+		zoomH = (int)(surfZoom**pBmpH);
+		actualZoomX = (float)zoomW / *pBmpW;
+		actualZoomY = (float)zoomH / *pBmpH;
+
+		// 更新捆绑状态
+		CalcBindState();
+
+		if (renew)
+			SurfRenew(false);
+		SetInfoStr();// 更新信息字符串
 	}
 	else
 	{
 		Clear();
 	}
 
-	CalcBindSituation();
-
-	if (renew)
-		SurfRenew(false);
-	SetInfoStr();// 更新信息字符串，Clear()中有
-
-	return pbmp != NULL;
+	return pBmp != NULL;
 }
 
 bool Surfer::DeBindPic(PicPack *ppic)
 {
 	if (ppic)
 	{
-		ppic->SetSrc(surfsrc);
-		ppic->SetZoom(surfzoom);
+		ppic->SetSrc(surfBase);
+		ppic->SetZoom(surfZoom);
 
-		CalcBindSituation();
+		CalcBindState();
 
 		return true;
 	}
@@ -438,12 +439,12 @@ bool Surfer::DeBindPic(PicPack *ppic)
 
 //void Surfer::Refresh()
 //{
-//	if (haspic)
+//	if (bPicOn)
 //	{
-//		zoomw = (int)(surfzoom**pbmpw);
-//		zoomh = (int)(surfzoom**pbmph);
-//		actualzoomx = (float)zoomw / *pbmpw;
-//		actualzoomy = (float)zoomh / *pbmph;
+//		zoomW = (int)(surfZoom**pBmpW);
+//		zoomH = (int)(surfZoom**pBmpH);
+//		actualZoomX = (float)zoomW / *pBmpW;
+//		actualZoomY = (float)zoomH / *pBmpH;
 //
 //		SurfRenew(false);
 //		SetInfoStr();// 更新信息字符串
@@ -454,37 +455,68 @@ bool Surfer::DeBindPic(PicPack *ppic)
 //	}
 //}
 
-void Surfer::SetBasePoint(POINT bp)
+void Surfer::SetBasePoint(POINT color)
 {
-	basepoint = bp;
+	basePoint = color;
+}
+
+void Surfer::PostSurfPosChange()
+{
+	bOutClient = (
+		surfBase.x > zoomW || surfBase.y > zoomH	//区域超出surface右或下
+		|| surfBase.x + (int)*pBufferW <= 0			//区域右下不够surface左或上
+		|| surfBase.y + (int)*pBufferH <= 0
+		);
+	bPicClipped = (
+		surfBase.x > 0 || surfBase.y > 0			//surface左上上侧需bClip
+		|| zoomW - surfBase.x > (int)*pBufferW		//surface右侧需bClip
+		|| zoomH - surfBase.y > (int)*pBufferH		//surface下侧需bClip
+		);
+
+	SETPOINT(surfSize, (LONG)zoomW, (LONG)zoomH);
+	if (bClip)
+	{
+		// surface左侧clip
+		if (surfBase.x > 0)
+			surfSize.x -= surfBase.x;
+		// surface上侧clip
+		if (surfBase.y > 0)
+			surfSize.y -= surfBase.y;
+		// surface右侧clip
+		if ((LONG)zoomW - surfBase.x > (int)*pBufferW)
+			surfSize.x -= zoomW - surfBase.x - (int)*pBufferW;
+		// surface下侧clip
+		if ((LONG)zoomH - surfBase.y > (int)*pBufferH)
+			surfSize.y -= zoomH - surfBase.y - (int)*pBufferH;
+	}
 }
 
 void Surfer::Clear()
 {
 	SAFE_RELEASE(surf);//释放surface
-	pbmp = NULL;
-	pbmpw = NULL;
-	pbmph = NULL;
+	pBmp = NULL;
+	pBmpW = NULL;
+	pBmpH = NULL;
 
-	sampleschema = SAMPLE_SCHEMA_UNKNOWN;
+	sampleSchema = SAMPLE_SCHEMA_UNKNOWN;
 
-	zoomw = 0;
-	zoomh = 0;
+	zoomW = 0;
+	zoomH = 0;
 
-	actualzoomx = 0;
-	actualzoomy = 0;
-	surffailed = true;
-	surfclipped = false;
+	actualZoomX = 0;
+	actualZoomY = 0;
+	bSurfFailed = true;
+	bSurfClipped = false;
 
-	ZEROPOINT(surfsize)
-	picclipped = false;
-	outsideclient = false;
+	ZEROPOINT(surfSize)
+	bPicClipped = false;
+	bOutClient = false;
 
-	ZEROPOINT(picpixel)
-	picpixelcolor = 0;
-	cursorpos = CURSORPOS_BLANK;//更新标志
+	ZEROPOINT(cursorPixel)
+	cursorColor = 0;
+	cursorPos = CURSORPOS_BLANK;//更新标志
 
-	CalcBindSituation();
+	CalcBindState();
 	SetInfoStr();
 }
 
@@ -551,23 +583,23 @@ void ALPHABLEND::InitAlphBlendTCube()
 
 PicPack::PicPack() 
 {
-	bmp = new BMP;
+	pBmp = new BMP;
 
-	ZeroMemory(&myimginfo, sizeof(myimginfo));
-	ZeroMemory(&d3dimginfo, sizeof(d3dimginfo));
+	ZeroMemory(&myPicInfo, sizeof(myPicInfo));
+	ZeroMemory(&D3DPicInfo, sizeof(D3DPicInfo));
 	strFileName[0] = L'\0';
 
 	ZEROPOINT(src)
 	zoom = 1.0f;
 
-	saved = false;
-	dired = false;
+	bSaved = false;
+	bHasDirectory = false;
 }
 
 PicPack::~PicPack()
 {
-	delete bmp;
-	bmp = NULL;
+	delete pBmp;
+	pBmp = NULL;
 }
 
 WCHAR * PicPack::GetFileName()
@@ -575,27 +607,27 @@ WCHAR * PicPack::GetFileName()
 	return strFileName;
 }
 
-HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
+HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pDevice, WCHAR file[])
 {
-	if (!pdev)
+	if (!pDevice)
 		return E_FAIL;
 
 	// 获取图片信息
 	HRESULT hr;
-	ZeroMemory(&d3dimginfo, sizeof(D3DXIMAGE_INFO));
-	D3DXGetImageInfoFromFileW(file, &d3dimginfo);
-	/*if (d3dimginfo.Width == 0 || d3dimginfo.Height == 0)
+	ZeroMemory(&D3DPicInfo, sizeof(D3DXIMAGE_INFO));
+	D3DXGetImageInfoFromFileW(file, &D3DPicInfo);
+	/*if (D3DPicInfo.Width == 0 || D3DPicInfo.Height == 0)
 	{
 	return false;
 	}*/
 	//获取基本信息
-	if(!myimginfo.ReadFile(file))
+	if(!myPicInfo.ReadFile(file))
 		return E_FAIL;
 
 	// 创建与图片匹配表面
 	LPDIRECT3DSURFACE9 tempsurf = NULL;
-	hr = pdev->CreateOffscreenPlainSurface(
-		(LONG)myimginfo.width, (LONG)myimginfo.height, D3DFMT_A8R8G8B8
+	hr = pDevice->CreateOffscreenPlainSurface(
+		(LONG)myPicInfo.width, (LONG)myPicInfo.height, D3DFMT_A8R8G8B8
 		, D3DPOOL_SYSTEMMEM, &tempsurf, NULL);
 	FAILED_RETURN(hr);
 	// 装载图片
@@ -607,15 +639,15 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	//S_OK;
 
 	// 存入BMP
-	if (!bmp->Load(tempsurf)) return E_FAIL;//从tempsurface加载图片
-	bmp->SetAlpha(myimginfo.channels == 4);//设置alpha
+	if (!pBmp->Load(tempsurf)) return E_FAIL;//从tempsurface加载图片
+	pBmp->SetAlpha(myPicInfo.channels == 4);//设置alpha
 
 	// 文件名
 	wcscpy_s(strFileName, file);
 
 	// 状态更新
-	dired = true;
-	saved = true;
+	bHasDirectory = true;
+	bSaved = true;
 
 	// 清除surface
 	SAFE_RELEASE(tempsurf);
@@ -623,31 +655,31 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 	return S_OK;
 }
 
-bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
+bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pDevice, WCHAR file[])
 {
-	if (!pdev || bmp->isEmpty())
+	if (!pDevice || pBmp->isEmpty())
 	{
 		return false;
 	}
 	HRESULT hr;
 
 	LPDIRECT3DSURFACE9 tempsurf = NULL;
-	hr = pdev->CreateOffscreenPlainSurface(
-		bmp->width, bmp->height
+	hr = pDevice->CreateOffscreenPlainSurface(
+		pBmp->width, pBmp->height
 		, D3DFMT_A8R8G8B8
 		, D3DPOOL_SYSTEMMEM
 		, &tempsurf
 		, NULL);
 	FAILED_RETURN_FALSE(hr);
 
-	FALSE_RETURN(bmp->UpLoad(tempsurf));//从tempsurface加载图片
-	hr = D3DXSaveSurfaceToFile(file, d3dimginfo.ImageFileFormat, tempsurf, NULL, NULL);//保存到文件
+	FALSE_RETURN(pBmp->UpLoad(tempsurf));//从tempsurface加载图片
+	hr = D3DXSaveSurfaceToFile(file, D3DPicInfo.ImageFileFormat, tempsurf, NULL, NULL);//保存到文件
 
 	// 文件名
 	wcscpy_s(strFileName, file);
 
 	// 状态更新
-	saved = true;
+	bSaved = true;
 
 	return !FAILED(hr);
 }
@@ -655,19 +687,19 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pdev, WCHAR file[])
 WCHAR * PicPack::GetPicInfoStrW()
 {
 	//图片尺寸、格式
-	swprintf_s(picinfostr, _T("SIZE: %d × %d\n\
+	swprintf_s(picInfoStr, _T("SIZE: %d × %d\n\
 		FORMAT: %S\n\
 		FILE: %lld Bytes  [%.3fMB]\n\
 		DEPTH: %d\n\
 		CHANNEL: %d\n\
 		ALPHA: %d")
-		, bmp->width, bmp->height
-		, GetFMTStr(d3dimginfo.Format).c_str()
-		, myimginfo.bytecount, myimginfo.bytecount / 1048576.0f
-		, myimginfo.generaldepth
-		, myimginfo.channels
-		, bmp->alphaon);
-	return picinfostr;
+		, pBmp->width, pBmp->height
+		, GetFMTStr(D3DPicInfo.Format).c_str()
+		, myPicInfo.bytecount, myPicInfo.bytecount / 1048576.0f
+		, myPicInfo.generaldepth
+		, myPicInfo.channels
+		, pBmp->bAlpha);
+	return picInfoStr;
 }
 
 string GetFMTStr(D3DFORMAT fmt)
@@ -738,7 +770,7 @@ string GetFMTStr(D3DFORMAT fmt)
 PicPackList::PicPackList()
 {
 	size = PICPACKLIST_SIZE_INIT;
-	plist = MALLOC(PicPack*, size);
+	data = MALLOC(PicPack*, size);
 	count = 0;
 	cur = 0;
 
@@ -765,10 +797,10 @@ PicPack * PicPackList::SetPicPack(int idx)
 	{
 		cur = idx;
 
-		pLivePicPack = plist[cur - 1];
+		pLivePicPack = data[cur - 1];
 		pLiveBMP = pLivePicPack->GetPBMP();
 
-		return plist[cur - 1];
+		return data[cur - 1];
 	}
 	else
 	{
@@ -784,10 +816,10 @@ PicPack * PicPackList::SetTailPicPack()
 
 	cur = count;
 
-	pLivePicPack = plist[cur - 1];
+	pLivePicPack = data[cur - 1];
 	pLiveBMP = pLivePicPack->GetPBMP();
 
-	return plist[cur - 1];
+	return data[cur - 1];
 }
 
 PicPack * PicPackList::SetPrev()
@@ -802,10 +834,10 @@ PicPack * PicPackList::SetPrev()
 
 	if (cur <= count && cur > 0)
 	{
-		pLivePicPack = plist[cur - 1];
+		pLivePicPack = data[cur - 1];
 		pLiveBMP = pLivePicPack->GetPBMP();
 
-		return plist[cur - 1];
+		return data[cur - 1];
 	}
 	else
 	{
@@ -827,10 +859,10 @@ PicPack * PicPackList::SetNext()
 
 	if (cur <= count && cur > 0)
 	{
-		pLivePicPack = plist[cur - 1];
+		pLivePicPack = data[cur - 1];
 		pLiveBMP = pLivePicPack->GetPBMP();
 
-		return plist[cur - 1];
+		return data[cur - 1];
 	}
 	else
 	{
@@ -845,10 +877,10 @@ PicPack * PicPackList::Drop()
 	if (count < 1 || cur>count || cur <= 0)
 		return NULL;
 
-	delete plist[cur - 1];
+	delete data[cur - 1];
 	for (int i = cur; i <= count - 1; i++)
 	{
-		plist[i - 1] = plist[i];
+		data[i - 1] = data[i];
 	}
 	if (cur == count)
 		cur--;
@@ -856,10 +888,10 @@ PicPack * PicPackList::Drop()
 
 	if (count >= 1 && cur <= count && cur > 0)//删除后还有图片
 	{
-		pLivePicPack = plist[cur - 1];
+		pLivePicPack = data[cur - 1];
 		pLiveBMP = pLivePicPack->GetPBMP();
 
-		return plist[cur - 1];
+		return data[cur - 1];
 	}
 	else//删除后列表中没图片了
 	{
@@ -877,11 +909,11 @@ PicPack * PicPackList::Drop()
 //	if (count >= size)
 //	{
 //		size += 2;
-//		plist = (PicPack**)realloc(plist, size*sizeof(PicPack*));
+//		data = (PicPack**)realloc(data, size*sizeof(PicPack*));
 //	}
 //
 //	count++;
-//	plist[count - 1] = new PicPack;
+//	data[count - 1] = new PicPack;
 //}
 
 bool PicPackList::Add(PicPack * newpp)
@@ -891,10 +923,10 @@ bool PicPackList::Add(PicPack * newpp)
 		if (count >= size)
 		{
 			size += PICPACKLIST_SIZE_INCREMENT;
-			REALLOC(plist, PicPack*, size)
+			REALLOC(data, PicPack*, size)
 		}
 		count++;
-		plist[count - 1] = newpp;
+		data[count - 1] = newpp;
 		return true;
 	}
 	else

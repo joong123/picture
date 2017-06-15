@@ -118,7 +118,7 @@ bool PicShow::AddPic(WCHAR * filename)
 #ifdef PICMETHODCDC
 	result = piclist[piccounts - 1].Read_1(filename, showpDC);
 #else
-	result = piclist[piccounts - 1].Read_2(filename);
+	result = piclist[piccounts - 1].Read(filename);
 #endif
 	if (!result)
 		return false;
@@ -145,9 +145,9 @@ bool PicShow::Show(int picnum, BYTE alpha, bool redrawback)
 #ifdef PICMETHODCDC
 		back->Show_1(pDC, interrect.left, interrect.top, alpha);
 #else
-		back->Show_2(mDC->pDC
+		back->Show(mDC->pDC
 			, max(0, backbias.x), max(0, backbias.y), alpha, redrawback, backrect);
-		piclist[picnum - 1].Show_2(mDC->pDC, 0, 0, alpha, false);
+		piclist[picnum - 1].Show(mDC->pDC, 0, 0, alpha, false);
 
 		/*showpDC->BitBlt(base.x, base.y
 		, width, height
@@ -167,7 +167,7 @@ bool PicShow::Show(int picnum, BYTE alpha, bool redrawback)
 #ifdef PICMETHODCDC
 		return piclist[picnum - 1].Show_1(pDC, base.x, base.y, alpha);
 #else
-		return piclist[picnum - 1].Show_2(showpDC, base.x, base.y, alpha, false);
+		return piclist[picnum - 1].Show(showpDC, base.x, base.y, alpha, false);
 #endif
 	}
 }
@@ -288,7 +288,7 @@ bool memPic::Read_1(WCHAR * filename, CDC *pDC)
 	return true;
 }
 
-bool memPic::Read_2(WCHAR * filename)
+bool memPic::Read(WCHAR * filename)
 {
 	if (!info.ReadFile(filename))
 		return false;
@@ -315,7 +315,7 @@ bool memPic::Show_1(CDC * pDC, int x, int y, BYTE alpha)
 	return true;
 }
 
-bool memPic::Show_2(CDC * pDC, int x, int y, BYTE alpha, bool redrawback, RECT srcrect)
+bool memPic::Show(CDC * pDC, int x, int y, BYTE alpha, bool redrawback, RECT srcrect)
 {
 	if (redrawback)
 	{
@@ -343,7 +343,7 @@ bool memPic::Show_2(CDC * pDC, int x, int y, BYTE alpha, bool redrawback, RECT s
 bool memPic::LoadImg(WCHAR * file, int w, int h)
 {
 	if (file)
-		Read_2(file);
+		Read(file);
 	else
 		return false;
 	SetSize(w, h);

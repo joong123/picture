@@ -20,10 +20,10 @@
 #define FAILED_RETURN_FALSE(hr)			{ if (FAILED(hr)) return false; }
 
 //窗口信息
-#define WINDOWPOSX_INIT				180
-#define WINDOWPOSY_INIT				100
-#define WINDOWWIDTH_INIT			800
-#define WINDOWHEIGHT_INIT			520
+#define D3DWINDOWPOSX_INIT				CW_USEDEFAULT
+#define D3DWINDOWPOSY_INIT				100
+#define D3DWINDOWWIDTH_INIT				656
+#define D3DWINDOWHEIGHT_INIT			518
 
 using std::string;
 
@@ -51,10 +51,10 @@ struct FVF3
 
 class D3DWnd {
 private:
-	RECT clientrect;
+	RECT rcClient;
 	RECT windowrect;
 
-	HWND hwnd;
+	HWND hWnd;
 	HINSTANCE hinst;
 private:
 	LPDIRECT3D9	lpD3D;
@@ -66,7 +66,7 @@ private:
 	int vertexprocessing;					//vertexprocessing方式
 public:
 	D3DWnd() {
-		hwnd = NULL;
+		hWnd = NULL;
 		hinst = NULL;
 
 		lpD3D = NULL;
@@ -81,14 +81,14 @@ public:
 	bool D3DCreateWindow(WCHAR *lpWindowName
 		, WNDPROC wndproc, HINSTANCE hInstance = NULL
 		, DWORD ClassStyle = 0, DWORD Style = 0, DWORD ExStyle = 0
-		, int x = WINDOWPOSX_INIT, int y = WINDOWPOSY_INIT
-		, int width = WINDOWWIDTH_INIT, int height = WINDOWHEIGHT_INIT
+		, int x = D3DWINDOWPOSX_INIT, int y = D3DWINDOWPOSY_INIT
+		, int width = D3DWINDOWWIDTH_INIT, int height = D3DWINDOWHEIGHT_INIT
 		, HICON hIcon = NULL, HICON hIconsm = NULL//unimportant param
 		, WCHAR *lpMenuName = NULL
 		, WCHAR *szWindowClass = NULL
-		, D3DCOLOR backcolor = D3DCOLOR_XRGB(250, 250, 250)
+		, D3DCOLOR BackgroundColor = D3DCOLOR_XRGB(250, 250, 250)
 	);
-	void SetHWND(HWND hwnd);
+	void SetHWND(HWND hWnd);
 	HWND GetHWND();
 	inline void Get2WndRect();
 //D3D
@@ -109,7 +109,7 @@ public:
 	bool CreateVertexBuffer_Custom1(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int r = 1, D3DCOLOR color = 0);
 	bool CreateVertexBuffer_Custom2(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int w = 1, int h = 1, D3DCOLOR color = 0);
 
-	//bool CreateMesh_Custom1(LPD3DXMESH *ppmesh);
+	bool CreateMesh_Custom1(LPD3DXMESH *ppmesh);
 	void CreateSphere(ID3DXMesh ** obj, int finess, float radius, D3DCOLOR color, float height);
 
 
@@ -153,8 +153,8 @@ public:
 
 		Get2WndRect();
 
-		d3dpp.BackBufferWidth = WIDTHOF(clientrect);
-		d3dpp.BackBufferHeight = HEIGHTOF(clientrect);
+		d3dpp.BackBufferWidth = WIDTHOF(rcClient);
+		d3dpp.BackBufferHeight = HEIGHTOF(rcClient);
 
 		if (FAILED(device->Reset(&d3dpp)))
 		{

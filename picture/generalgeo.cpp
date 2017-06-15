@@ -134,6 +134,42 @@ VECTOR3 VECTOR3::operator/(FLOAT f) const
 	return rs;
 }
 
+SPHERICAL_ANGLE GetSphericalAngle(short x, short y, short z)
+{
+	float azi = 0, zen = 0;
+
+	if (x != 0 && y != 0)
+	{
+		azi = R2D_F(atanf((float)y / x));
+
+		//这两步不能合并
+		if (azi < 0)
+			azi += 180.0f;
+		if (y < 0)
+			azi += 180.0f;
+
+		zen = R2D_F(atanf((float)z / sqrtf((float)x*x + y*y)));
+	}
+	else if (x == 0 && y == 0)
+	{
+		azi = 0;
+		zen = z == 0 ? 90.0f : (z > 0 ? 180.0f : 0.0f);
+	}
+	else if (x == 0)
+	{
+		azi = y > 0 ? 90.0f : 270.0f;
+		zen = R2D_F(atanf((float)z / abs(y)));
+	}
+	else //(y == 0)
+	{
+		azi = x > 0 ? 0.0f : 180.0f;
+		zen = R2D_F(atanf((float)z / abs(x)));
+	}
+	zen += 90.0f;
+
+	return{ azi,zen };
+}
+
 VECTOR3 operator*(FLOAT f, const VECTOR3 &v2)
 {
 	VECTOR3 rs;

@@ -61,9 +61,9 @@ struct memPic {
 	void SetSize(int width, int height);
 
 	bool Read_1(WCHAR *filename, CDC *pDC);
-	bool Read_2(WCHAR *filename);
+	bool Read(WCHAR *filename);
 	bool Show_1(CDC *pDC, int x = 0, int y = 0, BYTE alpha = 255);
-	bool Show_2(CDC *pDC, int x = 0, int y = 0, BYTE alpha = 255, bool redrawback = false, RECT srcrect = {0,0,0,0});
+	bool Show(CDC *pDC, int x = 0, int y = 0, BYTE alpha = 255, bool redrawback = false, RECT srcrect = { 0,0,0,0 });
 
 	bool LoadImg(WCHAR *file, int w = 0, int h = 0);
 };
@@ -89,7 +89,7 @@ private:
 
 public:
 	int width, height;	//»ù±¾³ß´ç
-	bool onenter;		
+	bool onenter;
 
 	PicShow();
 	PicShow(int listlen, CPoint b = { 0, 0 });
@@ -107,17 +107,10 @@ public:
 	bool Show(int picnum = 1, BYTE alpha = 255, bool redrawback = false);
 
 	void OnPaint();
-	void OnEnter();
-	void OnBnDown();
-	void OnLeave();
 };
 
 
-struct threadparam {
-	PicShow *pps;
-	CDC *wdc;
-};
-
+#endif // USE_GDIGUI
 
 class File {
 private:
@@ -152,5 +145,3 @@ public:
 		return true;
 	}
 };
-
-#endif // USE_GDIGUI

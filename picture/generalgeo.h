@@ -13,6 +13,8 @@ using std::setprecision;
 //GENERAL
 #define PI_F						3.14159265f
 #define PI							3.1415926535897932
+#define R2D(R)						((R) * 180.0 / PI)
+#define R2D_F(R)					((R) * 180.0f / PI_F)
 #define XNOR(B1, B2)				!((B1) ^ (B2))
 
 #define GDIRECT(L, T, W, H)			{(LONG)(L - 1), (LONG)(T - 1), (LONG)(L + W), (LONG)(T + H)}
@@ -52,6 +54,7 @@ using std::setprecision;
 
 #define ZEROPOINT(P)				{(P).x = 0; (P).y = 0;}
 #define SETPOINT(P, X, Y)			{(P).x = X; (P).y = Y;}
+#define OPPOSITEPOINT(P)			{-(P).x, -(P).y}
 
 // 三阶向量运算
 #define IS_VEC3_ZERO(V)				((V).x == 0 && (V).y == 0 && (V).z == 0)	//判断向量全0
@@ -73,6 +76,15 @@ using std::setprecision;
 #define PVEC3_ANGLE(PV1, PV2)		acosf(PVEC3_DOT(PV1, PV2) / PVEC3_LEN(PV1) / PVEC3_LEN(PV2))
 #define VEC3_ANGLE_LF(V1, V2)		acos(VEC3_DOT_LF(V1, V2) / VEC3_LEN_LF(V1) / VEC3_LEN_LF(V2))
 #define PVEC3_ANGLE_LF(PV1, PV2)	acos(PVEC3_DOT_LF(PV1, PV2) / PVEC3_LEN_LF(PV1) / PVEC3_LEN_LF(PV2))
+
+
+// 球坐标系中表示向量的两个角
+struct SPHERICAL_ANGLE {
+	float azimuth;	// 方位角
+	float zenith;	// 天顶角
+};
+
+SPHERICAL_ANGLE GetSphericalAngle(short x, short y, short z);
 
 typedef struct VECTOR3
 {

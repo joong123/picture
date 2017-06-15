@@ -12,7 +12,7 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 	, HICON hIcon, HICON hIconsm
 	, WCHAR *lpMenuName
 	, WCHAR *szWindowClass
-	, D3DCOLOR backcolor)
+	, D3DCOLOR BackgroundColor)
 {
 	if (lpWindowName == NULL)
 		lpWindowName = L"UNNAME";
@@ -40,7 +40,7 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 	if (hIconsm == NULL)
 		hIconsm = ExtractIcon(hInstance, szExePath, 1);
 
-	HBRUSH hb = CreateSolidBrush(RGB(backcolor>>16, (backcolor>>8)&0xFF, backcolor & 0xFF));
+	HBRUSH hb = CreateSolidBrush(RGB(BackgroundColor>>16, (BackgroundColor>>8)&0xFF, BackgroundColor & 0xFF));
 
 	WNDCLASSEXW wcex;
 
@@ -69,51 +69,51 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 		return false;
 	}
 
-	hwnd = CreateWindowExW(ExStyle, szWindowClass, lpWindowName, Style,
+	hWnd = CreateWindowExW(ExStyle, szWindowClass, lpWindowName, Style,
 		x, y, width, height
 		, nullptr, nullptr, hInstance, nullptr);
 
-	if (!hwnd)
+	if (!hWnd)
 	{
 		return FALSE;
 	}
 
-	ShowWindow(hwnd, SW_SHOW);
-	UpdateWindow(hwnd);
+	ShowWindow(hWnd, SW_SHOW);
+	UpdateWindow(hWnd);
 
 	return true;
 }
 
-void D3DWnd::SetHWND(HWND hwnd)
+void D3DWnd::SetHWND(HWND hWnd)
 {
-	this->hwnd = hwnd;
+	this->hWnd = hWnd;
 }
 
 HWND D3DWnd::GetHWND()
 {
-	return hwnd;
+	return hWnd;
 }
 
 inline void D3DWnd::Get2WndRect()
 {
-	if (!hwnd)
+	if (!hWnd)
 		return;
 
-	GetClientRect(hwnd, &clientrect);//得到client区域尺寸
+	GetClientRect(hWnd, &rcClient);//得到client区域尺寸
 	POINT clienttl = { 0, 0 };
-	ClientToScreen(hwnd, &clienttl);//获得client区域左上角的屏幕坐标
+	ClientToScreen(hWnd, &clienttl);//获得client区域左上角的屏幕坐标
 									   //得到client真实屏幕区域
-	clientrect.left = clienttl.x;
-	clientrect.top = clienttl.y;
-	clientrect.right += clienttl.x;
-	clientrect.bottom += clienttl.y;
+	rcClient.left = clienttl.x;
+	rcClient.top = clienttl.y;
+	rcClient.right += clienttl.x;
+	rcClient.bottom += clienttl.y;
 
-	GetWindowRect(hwnd, &windowrect);//得到窗口区域
+	GetWindowRect(hWnd, &windowrect);//得到窗口区域
 }
 
 bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
 {
-	if (!hwnd)
+	if (!hWnd)
 		return false;
 
 	Get2WndRect();
@@ -126,23 +126,23 @@ bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
 
 	//caps
 	if (FAILED(lpD3D->GetDeviceCaps(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, &caps)))
-		MessageBoxW(hwnd, L"get caps FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
+		MessageBoxW(hWnd, L"get caps FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 
 	//display mode
 	hr = lpD3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displaymode);
 	if (FAILED(hr))
-		MessageBoxW(hwnd, L"get displaymode FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
+		MessageBoxW(hWnd, L"get displaymode FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 
 	mst = D3DMULTISAMPLE_NONE;
 
 	//D3DPRESENT_PARAMETERS
 	ZeroMemory(&d3dpp, sizeof(d3dpp));
-	d3dpp.BackBufferWidth = WIDTHOF(clientrect);
-	d3dpp.BackBufferHeight = HEIGHTOF(clientrect);
+	d3dpp.BackBufferWidth = WIDTHOF(rcClient);
+	d3dpp.BackBufferHeight = HEIGHTOF(rcClient);
 	d3dpp.BackBufferFormat = format;//加速，displaymode.Format
 	d3dpp.BackBufferCount = backbuffercount;
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-	d3dpp.hDeviceWindow = hwnd;
+	d3dpp.hDeviceWindow = hWnd;
 	d3dpp.Windowed = TRUE;
 	d3dpp.EnableAutoDepthStencil = TRUE;//深度缓冲
 	d3dpp.AutoDepthStencilFormat = D3DFMT_D24X8;//加速用D3DFMT_D24S8不用D3DFMT_D16
@@ -161,13 +161,13 @@ bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
 
 	SAFE_RELEASE(device);
 	hr = lpD3D->CreateDevice(
-		D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd
+		D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd
 		, vertexprocessing, &d3dpp, &device
 	);
 
 	if (FAILED(hr))
 	{
-		//MessageBoxW(mainwnd, L"Device create FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
+		//MessageBoxW(hWndMain, L"Device create FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 		return false;
 	}
 
@@ -336,199 +336,211 @@ bool D3DWnd::CreateVertexBuffer_Custom2(LPDIRECT3DVERTEXBUFFER9 * vb, int x, int
 	return true;
 }
 
-//bool D3DWnd::CreateMesh_Custom1(LPD3DXMESH * ppmesh)
-//{
-//	if (!ppmesh || !device)
-//		return false;
-//
-//	const int numvertices = 288;//288
-//	const int numfaces = 96;
-//	FAILED_RETURN_FALSE(D3DXCreateMeshFVF(numfaces, numvertices, D3DXMESH_MANAGED,
-//		FVF_3PDN,
-//		device,
-//		ppmesh))
-//
-//	byte alpha = 0x60;
-//	// 颜色
-//	D3DCOLOR COLOR1 = D3DCOLOR_ARGB(alpha, 0xFF, 0x30, 0x30);	//红
-//	D3DCOLOR COLOR2 = D3DCOLOR_ARGB(alpha, 0xF9, 0xBB, 0x42);	//黄
-//	D3DCOLOR COLOR3 = D3DCOLOR_ARGB(alpha, 0x7A, 0x3C, 0x92);	//紫
-//	D3DCOLOR COLOR4 = D3DCOLOR_ARGB(alpha, 0xED, 0xD4, 0xE7);	//粉
-//	D3DCOLOR COLOR5 = D3DCOLOR_ARGB(alpha, 0xFF, 0xFF, 0xFF);	//白
-//	// 法向量
-//	D3DXVECTOR3 NORMAL1 = D3DXVECTOR3(0.0f, 0.0f, -1.0f);
-//	D3DXVECTOR3 NORMAL2 = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
-//	D3DXVECTOR3 NORMALSIDE1 = D3DXVECTOR3(0.343f, 0.939f, 0.0f);
-//	D3DXVECTOR3 NORMALSIDE2 = D3DXVECTOR3(0.939f, 0.343f, 0.0f);
-//	// 点
-//	float baselen = 2.0f;
-//	float thickness = baselen*0.6f;
-//	float SQRT2 = sqrt(2.0f);
-//	float SQRT3 = sqrt(3.0f);
-//	float P1Y_TO_P4Y = 25.0f / 23 + 1;
-//	D3DXVECTOR3 POINTLIST[9] = { D3DXVECTOR3(0.0f, 0.0f, -thickness / 2)
-//		, D3DXVECTOR3(0.0f, baselen*SQRT2, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2 / 2, baselen*SQRT2 / 2, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2, 0.0f, -thickness / 2)
-//		, D3DXVECTOR3(0.0f, baselen*SQRT2*P1Y_TO_P4Y, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y / 2 - baselen / 2 / SQRT2
-//			, baselen*SQRT2*P1Y_TO_P4Y / 2 + baselen / 2 / SQRT2, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y / 2 + baselen / 2 / SQRT2
-//			, baselen*SQRT2*P1Y_TO_P4Y / 2 - baselen / 2 / SQRT2, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y, 0.0f, -thickness / 2)
-//		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y - baselen*SQRT2 / 2
-//			, baselen*SQRT2*P1Y_TO_P4Y - baselen*SQRT2 / 2, -thickness / 2)
-//	};
-//	// 索引
-//	WORD indexlist[10 * 3] = {
-//		0,1,2	,3,4,5	,6,7,8	,9,10,11	,12,13,14	,15,16,17	
-//		,18,19,20	,21,22,23	,24,25,26	,27,28,29
-//	};
-//
-//	WORD index[numfaces * 3];
-//	FVF3 vertice[numvertices];
-//	for (int i = 0; i < 4; i++)
-//	{
-//		int bias = i*numvertices / 4;
-//
-//		// 正面点
-//		vertice[0 + bias] = { POINTLIST[0], NORMAL1, COLOR1 };
-//		vertice[1 + bias] = { POINTLIST[1], NORMAL1, COLOR1 };
-//		vertice[2 + bias] = { POINTLIST[2], NORMAL1, COLOR1 };\
-//		vertice[3 + bias] = { POINTLIST[0], NORMAL1, COLOR2 };
-//		vertice[4 + bias] = { POINTLIST[2], NORMAL1, COLOR2 };
-//		vertice[5 + bias] = { POINTLIST[3], NORMAL1, COLOR2 };\
-//		vertice[6 + bias] = { POINTLIST[1], NORMAL1, COLOR2 };
-//		vertice[7 + bias] = { POINTLIST[4], NORMAL1, COLOR2 };
-//		vertice[8 + bias] = { POINTLIST[5], NORMAL1, COLOR2 };\
-//		vertice[9 + bias] = { POINTLIST[1], NORMAL1, COLOR5 };
-//		vertice[10 + bias] = { POINTLIST[5], NORMAL1, COLOR5 };
-//		vertice[11 + bias] = { POINTLIST[2], NORMAL1, COLOR5 };\
-//		vertice[12 + bias] = { POINTLIST[2], NORMAL1, COLOR3 };
-//		vertice[13 + bias] = { POINTLIST[5], NORMAL1, COLOR3 };
-//		vertice[14 + bias] = { POINTLIST[6], NORMAL1, COLOR3 };\
-//		vertice[15 + bias] = { POINTLIST[2], NORMAL1, COLOR5 };
-//		vertice[16 + bias] = { POINTLIST[6], NORMAL1, COLOR5 };
-//		vertice[17 + bias] = { POINTLIST[3], NORMAL1, COLOR5 };\
-//		vertice[18 + bias] = { POINTLIST[3], NORMAL1, COLOR4 };
-//		vertice[19 + bias] = { POINTLIST[6], NORMAL1, COLOR4 };
-//		vertice[20 + bias] = { POINTLIST[7], NORMAL1, COLOR4 };\
-//		vertice[21 + bias] = { POINTLIST[4], NORMAL1, COLOR1 };
-//		vertice[22 + bias] = { POINTLIST[8], NORMAL1, COLOR1 };
-//		vertice[23 + bias] = { POINTLIST[5], NORMAL1, COLOR1 };\
-//		vertice[24 + bias] = { POINTLIST[5], NORMAL1, COLOR5 };
-//		vertice[25 + bias] = { POINTLIST[8], NORMAL1, COLOR5 };
-//		vertice[26 + bias] = { POINTLIST[6], NORMAL1, COLOR5 };\
-//		vertice[27 + bias] = { POINTLIST[6], NORMAL1, COLOR1 };
-//		vertice[28 + bias] = { POINTLIST[8], NORMAL1, COLOR1 };
-//		vertice[29 + bias] = { POINTLIST[7], NORMAL1, COLOR1 };
-//		// 正面点的索引
-//		for (int j = 0; j < 30; j++)
-//		{
-//			index[j + bias] = indexlist[j] + bias;
-//		}
-//
-//
-//		for (int j = 0; j < 10; j++)
-//		{
-//			POINTLIST[j].z += thickness;
-//		}
-//		// 反面点
-//		vertice[30 + bias] = { POINTLIST[0], NORMAL2, COLOR1 };
-//		vertice[31 + bias] = { POINTLIST[1], NORMAL2, COLOR1 };
-//		vertice[32 + bias] = { POINTLIST[2], NORMAL2, COLOR1 };\
-//		vertice[33 + bias] = { POINTLIST[0], NORMAL2, COLOR2 };
-//		vertice[34 + bias] = { POINTLIST[2], NORMAL2, COLOR2 };
-//		vertice[35 + bias] = { POINTLIST[3], NORMAL2, COLOR2 };\
-//		vertice[36 + bias] = { POINTLIST[1], NORMAL2, COLOR2 };
-//		vertice[37 + bias] = { POINTLIST[4], NORMAL2, COLOR2 };
-//		vertice[38 + bias] = { POINTLIST[5], NORMAL2, COLOR2 };\
-//		vertice[39 + bias] = { POINTLIST[1], NORMAL2, COLOR5 };
-//		vertice[40 + bias] = { POINTLIST[5], NORMAL2, COLOR5 };
-//		vertice[41 + bias] = { POINTLIST[2], NORMAL2, COLOR5 };\
-//		vertice[42 + bias] = { POINTLIST[2], NORMAL2, COLOR3 };
-//		vertice[43 + bias] = { POINTLIST[5], NORMAL2, COLOR3 };
-//		vertice[44 + bias] = { POINTLIST[6], NORMAL2, COLOR3 };\
-//		vertice[45 + bias] = { POINTLIST[2], NORMAL2, COLOR5 };
-//		vertice[46 + bias] = { POINTLIST[6], NORMAL2, COLOR5 };
-//		vertice[47 + bias] = { POINTLIST[3], NORMAL2, COLOR5 };\
-//		vertice[48 + bias] = { POINTLIST[3], NORMAL2, COLOR4 };
-//		vertice[49 + bias] = { POINTLIST[6], NORMAL2, COLOR4 };
-//		vertice[50 + bias] = { POINTLIST[7], NORMAL2, COLOR4 };\
-//		vertice[51 + bias] = { POINTLIST[4], NORMAL2, COLOR1 };
-//		vertice[52 + bias] = { POINTLIST[8], NORMAL2, COLOR1 };
-//		vertice[53 + bias] = { POINTLIST[5], NORMAL2, COLOR1 };\
-//		vertice[54 + bias] = { POINTLIST[5], NORMAL2, COLOR5 };
-//		vertice[55 + bias] = { POINTLIST[8], NORMAL2, COLOR5 };
-//		vertice[56 + bias] = { POINTLIST[6], NORMAL2, COLOR5 };\
-//		vertice[57 + bias] = { POINTLIST[6], NORMAL2, COLOR1 };
-//		vertice[58 + bias] = { POINTLIST[8], NORMAL2, COLOR1 };
-//		vertice[59 + bias] = { POINTLIST[7], NORMAL2, COLOR1 };
-//		//反面点的索引
-//		for (int j = 30; j < 60; j++)
-//		{
-//			index[j + bias] = indexlist[60 - j - 1] + 30 + bias;
-//		}
-//
-//		D3DXVECTOR3 ANTIPOINT4 = POINTLIST[4];
-//		D3DXVECTOR3 ANTIPOINT7 = POINTLIST[7];
-//		D3DXVECTOR3 ANTIPOINT8 = POINTLIST[8];
-//		//回到正面点
-//		for (int j = 0; j < 10; j++)
-//		{
-//			POINTLIST[j].z -= thickness;
-//		}
-//		//侧面点
-//		vertice[60 + bias] = { POINTLIST[4], NORMALSIDE1, COLOR1 };
-//		vertice[61 + bias] = { ANTIPOINT4, NORMALSIDE1, COLOR1 };
-//		vertice[62 + bias] = { ANTIPOINT8, NORMALSIDE1, COLOR1 };
-//		vertice[63 + bias] = { POINTLIST[4], NORMALSIDE1, COLOR1 };
-//		vertice[64 + bias] = { ANTIPOINT8, NORMALSIDE1, COLOR1 };
-//		vertice[65 + bias] = { POINTLIST[8], NORMALSIDE1, COLOR1 };
-//		vertice[66 + bias] = { POINTLIST[8], NORMALSIDE2, COLOR1 };
-//		vertice[67 + bias] = { ANTIPOINT8, NORMALSIDE2, COLOR1 };
-//		vertice[68 + bias] = { ANTIPOINT7, NORMALSIDE2, COLOR1 };
-//		vertice[69 + bias] = { POINTLIST[8], NORMALSIDE2, COLOR1 };
-//		vertice[70 + bias] = { ANTIPOINT7, NORMALSIDE2, COLOR1 };
-//		vertice[71 + bias] = { POINTLIST[7], NORMALSIDE2, COLOR1 };
-//		//侧面点的索引
-//		for (int j = 0; j < 12; j++)
-//		{
-//			index[j + 60 + bias] = indexlist[j] + 60 + bias;
-//		}
-//
-//
-//		for (int j = 0; j < 9; j++)//点旋转90度
-//		{
-//			float temp = POINTLIST[j].x;
-//			POINTLIST[j].x = POINTLIST[j].y;
-//			POINTLIST[j].y = -temp;
-//		}
-//		//法向量旋转
-//		float temp = NORMALSIDE1.x;
-//		NORMALSIDE1.x = NORMALSIDE1.y;
-//		NORMALSIDE1.y = -temp;
-//		temp = NORMALSIDE2.x;
-//		NORMALSIDE2.x = NORMALSIDE2.y;
-//		NORMALSIDE2.y = -temp;
-//	}
-//
-//
-//	void* pVertices = NULL;
-//	void* pIndex = NULL;
-//	(*ppmesh)->LockVertexBuffer(0, &pVertices);
-//	memcpy(pVertices, vertice, numvertices * sizeof(FVF3));
-//	(*ppmesh)->UnlockVertexBuffer();
-//
-//	(*ppmesh)->LockIndexBuffer(0, &pIndex);
-//	memcpy(pIndex, index, 3 * numfaces * sizeof(WORD));
-//	(*ppmesh)->UnlockIndexBuffer();
-//
-//	FAILED_RETURN_FALSE(
-//		D3DXSaveMeshToXW(L"crystal.x", *ppmesh, NULL, NULL, NULL, 0, D3DXF_FILEFORMAT_TEXT))
-//
-//	return true;
-//}
+bool D3DWnd::CreateMesh_Custom1(LPD3DXMESH * ppmesh)
+{
+	if (!ppmesh || !device)
+		return false;
+
+	const int numvertices = 288;//288
+	const int numfaces = 96;
+	FAILED_RETURN_FALSE(D3DXCreateMeshFVF(numfaces, numvertices, D3DXMESH_MANAGED,
+		FVF_3PDN,
+		device,
+		ppmesh));
+
+	byte alpha = 0x60;
+	// 颜色
+	D3DCOLOR COLOR1 = D3DCOLOR_ARGB(alpha, 0xFF, 0x30, 0x30);	//红
+	D3DCOLOR COLOR2 = D3DCOLOR_ARGB(alpha, 0xF9, 0xBB, 0x42);	//黄
+	D3DCOLOR COLOR3 = D3DCOLOR_ARGB(alpha, 0x7A, 0x3C, 0x92);	//紫
+	D3DCOLOR COLOR4 = D3DCOLOR_ARGB(alpha, 0xED, 0xD4, 0xE7);	//粉
+	D3DCOLOR COLOR5 = D3DCOLOR_ARGB(alpha, 0xFF, 0xFF, 0xFF);	//白
+	// 法向量
+	D3DXVECTOR3 NORMAL1 = D3DXVECTOR3(0.0f, 0.0f, -1.0f);
+	D3DXVECTOR3 NORMAL2 = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
+	D3DXVECTOR3 NORMALSIDE1 = D3DXVECTOR3(0.343f, 0.939f, 0.0f);
+	D3DXVECTOR3 NORMALSIDE2 = D3DXVECTOR3(0.939f, 0.343f, 0.0f);
+	// 点
+	float baselen = 2.0f;
+	float thickness = baselen*0.6f;
+	float SQRT2 = sqrt(2.0f);
+	float SQRT3 = sqrt(3.0f);
+	float P1Y_TO_P4Y = 25.0f / 23 + 1;
+	D3DXVECTOR3 POINTLIST[9] = { D3DXVECTOR3(0.0f, 0.0f, -thickness / 2)
+		, D3DXVECTOR3(0.0f, baselen*SQRT2, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2 / 2, baselen*SQRT2 / 2, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2, 0.0f, -thickness / 2)
+		, D3DXVECTOR3(0.0f, baselen*SQRT2*P1Y_TO_P4Y, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y / 2 - baselen / 2 / SQRT2
+			, baselen*SQRT2*P1Y_TO_P4Y / 2 + baselen / 2 / SQRT2, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y / 2 + baselen / 2 / SQRT2
+			, baselen*SQRT2*P1Y_TO_P4Y / 2 - baselen / 2 / SQRT2, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y, 0.0f, -thickness / 2)
+		, D3DXVECTOR3(baselen*SQRT2*P1Y_TO_P4Y - baselen*SQRT2 / 2
+			, baselen*SQRT2*P1Y_TO_P4Y - baselen*SQRT2 / 2, -thickness / 2)
+	};
+	// 索引
+	WORD indexlist[10 * 3] = {
+		0,1,2	,3,4,5	,6,7,8	,9,10,11	,12,13,14	,15,16,17	
+		,18,19,20	,21,22,23	,24,25,26	,27,28,29
+	};
+
+	WORD index[numfaces * 3];
+	FVF3 vertice[numvertices];
+	for (int i = 0; i < 4; i++)
+	{
+		int bias = i*numvertices / 4;
+
+		// 正面点
+		vertice[0 + bias] = { POINTLIST[0], NORMAL1, COLOR1 };
+		vertice[1 + bias] = { POINTLIST[1], NORMAL1, COLOR1 };
+		vertice[2 + bias] = { POINTLIST[2], NORMAL1, COLOR1 };\
+		vertice[3 + bias] = { POINTLIST[0], NORMAL1, COLOR2 };
+		vertice[4 + bias] = { POINTLIST[2], NORMAL1, COLOR2 };
+		vertice[5 + bias] = { POINTLIST[3], NORMAL1, COLOR2 };\
+		vertice[6 + bias] = { POINTLIST[1], NORMAL1, COLOR2 };
+		vertice[7 + bias] = { POINTLIST[4], NORMAL1, COLOR2 };
+		vertice[8 + bias] = { POINTLIST[5], NORMAL1, COLOR2 };\
+		vertice[9 + bias] = { POINTLIST[1], NORMAL1, COLOR5 };
+		vertice[10 + bias] = { POINTLIST[5], NORMAL1, COLOR5 };
+		vertice[11 + bias] = { POINTLIST[2], NORMAL1, COLOR5 };\
+		vertice[12 + bias] = { POINTLIST[2], NORMAL1, COLOR3 };
+		vertice[13 + bias] = { POINTLIST[5], NORMAL1, COLOR3 };
+		vertice[14 + bias] = { POINTLIST[6], NORMAL1, COLOR3 };\
+		vertice[15 + bias] = { POINTLIST[2], NORMAL1, COLOR5 };
+		vertice[16 + bias] = { POINTLIST[6], NORMAL1, COLOR5 };
+		vertice[17 + bias] = { POINTLIST[3], NORMAL1, COLOR5 };\
+		vertice[18 + bias] = { POINTLIST[3], NORMAL1, COLOR4 };
+		vertice[19 + bias] = { POINTLIST[6], NORMAL1, COLOR4 };
+		vertice[20 + bias] = { POINTLIST[7], NORMAL1, COLOR4 };\
+		vertice[21 + bias] = { POINTLIST[4], NORMAL1, COLOR1 };
+		vertice[22 + bias] = { POINTLIST[8], NORMAL1, COLOR1 };
+		vertice[23 + bias] = { POINTLIST[5], NORMAL1, COLOR1 };\
+		vertice[24 + bias] = { POINTLIST[5], NORMAL1, COLOR5 };
+		vertice[25 + bias] = { POINTLIST[8], NORMAL1, COLOR5 };
+		vertice[26 + bias] = { POINTLIST[6], NORMAL1, COLOR5 };\
+		vertice[27 + bias] = { POINTLIST[6], NORMAL1, COLOR1 };
+		vertice[28 + bias] = { POINTLIST[8], NORMAL1, COLOR1 };
+		vertice[29 + bias] = { POINTLIST[7], NORMAL1, COLOR1 };
+		// 正面点的索引
+		for (int j = 0; j < 30; j++)
+		{
+			index[j + bias] = indexlist[j] + bias;
+		}
+
+
+		for (int j = 0; j < 10; j++)
+		{
+			POINTLIST[j].z += thickness;
+		}
+		// 反面点
+		vertice[30 + bias] = { POINTLIST[0], NORMAL2, COLOR1 };
+		vertice[31 + bias] = { POINTLIST[1], NORMAL2, COLOR1 };
+		vertice[32 + bias] = { POINTLIST[2], NORMAL2, COLOR1 };\
+		vertice[33 + bias] = { POINTLIST[0], NORMAL2, COLOR2 };
+		vertice[34 + bias] = { POINTLIST[2], NORMAL2, COLOR2 };
+		vertice[35 + bias] = { POINTLIST[3], NORMAL2, COLOR2 };\
+		vertice[36 + bias] = { POINTLIST[1], NORMAL2, COLOR2 };
+		vertice[37 + bias] = { POINTLIST[4], NORMAL2, COLOR2 };
+		vertice[38 + bias] = { POINTLIST[5], NORMAL2, COLOR2 };\
+		vertice[39 + bias] = { POINTLIST[1], NORMAL2, COLOR5 };
+		vertice[40 + bias] = { POINTLIST[5], NORMAL2, COLOR5 };
+		vertice[41 + bias] = { POINTLIST[2], NORMAL2, COLOR5 };\
+		vertice[42 + bias] = { POINTLIST[2], NORMAL2, COLOR3 };
+		vertice[43 + bias] = { POINTLIST[5], NORMAL2, COLOR3 };
+		vertice[44 + bias] = { POINTLIST[6], NORMAL2, COLOR3 };\
+		vertice[45 + bias] = { POINTLIST[2], NORMAL2, COLOR5 };
+		vertice[46 + bias] = { POINTLIST[6], NORMAL2, COLOR5 };
+		vertice[47 + bias] = { POINTLIST[3], NORMAL2, COLOR5 };\
+		vertice[48 + bias] = { POINTLIST[3], NORMAL2, COLOR4 };
+		vertice[49 + bias] = { POINTLIST[6], NORMAL2, COLOR4 };
+		vertice[50 + bias] = { POINTLIST[7], NORMAL2, COLOR4 };\
+		vertice[51 + bias] = { POINTLIST[4], NORMAL2, COLOR1 };
+		vertice[52 + bias] = { POINTLIST[8], NORMAL2, COLOR1 };
+		vertice[53 + bias] = { POINTLIST[5], NORMAL2, COLOR1 };\
+		vertice[54 + bias] = { POINTLIST[5], NORMAL2, COLOR5 };
+		vertice[55 + bias] = { POINTLIST[8], NORMAL2, COLOR5 };
+		vertice[56 + bias] = { POINTLIST[6], NORMAL2, COLOR5 };\
+		vertice[57 + bias] = { POINTLIST[6], NORMAL2, COLOR1 };
+		vertice[58 + bias] = { POINTLIST[8], NORMAL2, COLOR1 };
+		vertice[59 + bias] = { POINTLIST[7], NORMAL2, COLOR1 };
+		//反面点的索引
+		for (int j = 30; j < 60; j++)
+		{
+			index[j + bias] = indexlist[60 - j - 1] + 30 + bias;
+		}
+
+		D3DXVECTOR3 ANTIPOINT4 = POINTLIST[4];
+		D3DXVECTOR3 ANTIPOINT7 = POINTLIST[7];
+		D3DXVECTOR3 ANTIPOINT8 = POINTLIST[8];
+		//回到正面点
+		for (int j = 0; j < 10; j++)
+		{
+			POINTLIST[j].z -= thickness;
+		}
+		//侧面点
+		vertice[60 + bias] = { POINTLIST[4], NORMALSIDE1, COLOR1 };
+		vertice[61 + bias] = { ANTIPOINT4, NORMALSIDE1, COLOR1 };
+		vertice[62 + bias] = { ANTIPOINT8, NORMALSIDE1, COLOR1 };
+		vertice[63 + bias] = { POINTLIST[4], NORMALSIDE1, COLOR1 };
+		vertice[64 + bias] = { ANTIPOINT8, NORMALSIDE1, COLOR1 };
+		vertice[65 + bias] = { POINTLIST[8], NORMALSIDE1, COLOR1 };
+		vertice[66 + bias] = { POINTLIST[8], NORMALSIDE2, COLOR1 };
+		vertice[67 + bias] = { ANTIPOINT8, NORMALSIDE2, COLOR1 };
+		vertice[68 + bias] = { ANTIPOINT7, NORMALSIDE2, COLOR1 };
+		vertice[69 + bias] = { POINTLIST[8], NORMALSIDE2, COLOR1 };
+		vertice[70 + bias] = { ANTIPOINT7, NORMALSIDE2, COLOR1 };
+		vertice[71 + bias] = { POINTLIST[7], NORMALSIDE2, COLOR1 };
+		//侧面点的索引
+		for (int j = 0; j < 12; j++)
+		{
+			index[j + 60 + bias] = indexlist[j] + 60 + bias;
+		}
+
+
+		for (int j = 0; j < 9; j++)//点旋转90度
+		{
+			float temp = POINTLIST[j].x;
+			POINTLIST[j].x = POINTLIST[j].y;
+			POINTLIST[j].y = -temp;
+		}
+		//法向量旋转
+		float temp = NORMALSIDE1.x;
+		NORMALSIDE1.x = NORMALSIDE1.y;
+		NORMALSIDE1.y = -temp;
+		temp = NORMALSIDE2.x;
+		NORMALSIDE2.x = NORMALSIDE2.y;
+		NORMALSIDE2.y = -temp;
+	}
+
+
+	void* pVertices = NULL;
+	void* pIndex = NULL;
+	(*ppmesh)->LockVertexBuffer(0, &pVertices);
+	memcpy(pVertices, vertice, numvertices * sizeof(FVF3));
+	(*ppmesh)->UnlockVertexBuffer();
+
+	(*ppmesh)->LockIndexBuffer(0, &pIndex);
+	memcpy(pIndex, index, 3 * numfaces * sizeof(WORD));
+	(*ppmesh)->UnlockIndexBuffer();
+
+	D3DXMATERIAL material;
+	ZeroMemory(&material, sizeof(D3DMATERIAL9));
+	material.MatD3D.Ambient = { 0.3f, 0.3f, 0.3f, 1.0f };
+	material.MatD3D.Diffuse = { 1.0f,1.0f,1.0f,0.8f };
+	material.MatD3D.Specular = { 0.6f,0.6f,0.6f,1.0f };
+	material.MatD3D.Emissive = { 0.0f,0.0f,0.0f,0.0f };
+	material.MatD3D.Power = 400.0f;
+	material.pTextureFilename = NULL;
+	//strcpy_s(material.pTextureFilename, "crystal.x");
+
+	volatile static HRESULT hr;
+	hr = D3DXSaveMeshToXW(L"crystal.x", *ppmesh, NULL, &material, NULL, 1, D3DXF_FILEFORMAT_TEXT);
+	if (SUCCEEDED(hr))
+		return true;
+	else
+		return false;
+}
 
 void D3DWnd::CreateSphere(ID3DXMesh ** obj, int finess, float radius, D3DCOLOR color, float height)
 {
@@ -718,7 +730,7 @@ WHQLLevel:%d\n",
 			HIWORD(adapterID.DriverVersion.HighPart), LOWORD(adapterID.DriverVersion.HighPart),
 			HIWORD(adapterID.DriverVersion.LowPart), LOWORD(adapterID.DriverVersion.LowPart),
 			adapterID.SubSysId, adapterID.Revision, print_guid(adapterID.DeviceIdentifier), adapterID.WHQLLevel);
-		MessageBox(hwnd, strBuffer, L"Graphics Identity", MB_OK | MB_APPLMODAL);
+		MessageBox(hWnd, strBuffer, L"Graphics Identity", MB_OK | MB_APPLMODAL);
 	}
 }
 

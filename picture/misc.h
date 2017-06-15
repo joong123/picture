@@ -3,6 +3,9 @@
 //--------------------------------------------------------------------------------------
 // A growable array
 //--------------------------------------------------------------------------------------
+
+#include<windows.h>
+
 template<typename TYPE> class CGrowableArray
 {
 public:
@@ -83,6 +86,21 @@ public:
 
 		return S_OK;
 	}
+	HRESULT Add_ext(const TYPE& value, UINT ext)
+	{
+		HRESULT hr;
+		if (FAILED(hr = SetSizeInternal(m_nSize + ext)))
+			return hr;
+
+		// Construct the new element
+		::new (&m_pData[m_nSize]) TYPE;
+
+		// Assign
+		m_pData[m_nSize] = value;
+		++m_nSize;
+
+		return S_OK;
+	}
 	HRESULT Insert(int nIndex, const TYPE& value);
 	HRESULT SetAt(int nIndex, const TYPE& value);
 	TYPE& GetAt(int nIndex) const
@@ -92,6 +110,10 @@ public:
 	int     GetSize() const
 	{
 		return m_nSize;
+	}
+	int		GetCapacity() const
+	{
+		return m_nMaxSize;
 	}
 	TYPE* GetData()
 	{
@@ -150,7 +172,7 @@ public:
 	}
 
 protected:
-	TYPE* m_pData;      // the actual array of data
+	TYPE* m_pData;      // the actual array of samples
 	int m_nSize;        // # of elements (upperBound - 1)
 	int m_nMaxSize;     // max allocated
 

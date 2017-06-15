@@ -59,7 +59,7 @@ template<typename TYPE> HRESULT CGrowableArray <TYPE>::SetAt(int nIndex, const T
 
 //--------------------------------------------------------------------------------------
 // Searches for the specified value and returns the index of the first occurrence
-// within the section of the data array that extends from iStart and contains the 
+// within the section of the samples array that extends from iStart and contains the 
 // specified number of elements. Returns -1 if value is not found within the given 
 // section.
 //--------------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::IndexOf(const TYPE& value, in
 
 //--------------------------------------------------------------------------------------
 // Searches for the specified value and returns the index of the last occurrence
-// within the section of the data array that contains the specified number of elements
+// within the section of the samples array that contains the specified number of elements
 // and ends at iEnd. Returns -1 if value is not found within the given section.
 //--------------------------------------------------------------------------------------
 template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value, int iEnd, int nNumElements)
