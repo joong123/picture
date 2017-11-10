@@ -75,7 +75,7 @@ public:
 		memset(&displaymode, 0, sizeof(displaymode));
 		memset(&caps, 0, sizeof(caps));
 	}
-//set callback
+//callback
 
 //window
 	bool D3DCreateWindow(WCHAR *lpWindowName
@@ -92,7 +92,7 @@ public:
 	HWND GetHWND();
 	inline void Get2WndRect();
 //D3D
-	bool CreateDevice(D3DFORMAT format = D3DFMT_A8R8G8B8, UINT backbuffercount = 1);
+	bool CreateDevice(D3DFORMAT textFormat = D3DFMT_A8R8G8B8, UINT backbuffercount = 1);
 	bool DXCreateFont(LPD3DXFONT *lpf
 		, WCHAR *fontName
 		, INT Height = 12, INT Width = 0, INT Weight = 0
@@ -162,6 +162,10 @@ public:
 		}
 
 		return true;
+	}
+	D3DMULTISAMPLE_TYPE GetMultiSample()
+	{
+		return mst;
 	}
 	void ChangeMultiSample();
 	//inline void Render();

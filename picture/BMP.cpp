@@ -30,7 +30,7 @@ BMP::~BMP()
 		{
 			SAFE_DELETE_LIST(data[i]);
 		}
-		DELETE_LIST(data);
+		SAFE_DELETE_LIST(data);
 	}
 }
 
@@ -297,56 +297,157 @@ void MYCALL1 BMP::Clear()
 	height = 0;
 }
 
-void Surfer::CalcBindState()
+SurferBase::SurferBase()
 {
-	bHasPic = pBmp && pBmpW && pBmpH;
-	bHasDevice = pDevice && pBufferW && pBufferH;
-	bHasBoth = bHasDevice && bHasPic;
-}
-
-Surfer::Surfer() {
-	surf = NULL;
-	pDevice = NULL;
 	pBmp = NULL;
-	pBmpW = NULL;
-	pBmpH = NULL;
 	pBufferW = NULL;
 	pBufferH = NULL;
 	bHasPic = false;
-	bHasDevice = false;
-	bHasBoth = false;
-
-	//surfrenewcount = 0;
-	renewTime = -0.001f;
-	sampleSchema = SAMPLE_SCHEMA_UNKNOWN;
-	surferInfoStr[0] = (WCHAR)'\0';
+	bNeedRenew = false;
 
 	QueryPerformanceFrequency(&freq);
 	wheeltick.QuadPart = 0;
 	lastwheeltick.QuadPart = 0;
 
 	bClip = true;
-	BackgroundColor = BACKCOLOR_INIT;
-	surfZoom = 1.0f;
-	lastSurfZoom = 1.0f;
+	zoom = 1.0f;
+	lastZoom = 1.0f;
 	actualZoomX = 1.0f;
 	actualZoomY = 1.0f;
 	zoomW = 0;
 	zoomH = 0;
 
+	ZEROPOINT(surfBase);
+	ZEROPOINT(basePoint);
+
+	ZEROPOINT(surfSize);
+	bPicClipped = false;
+	bOutClient = false;
+}
+
+void SurferBase::SurfAdjustZoom_DragPR(int wParam)
+{
+	float adds = 0;
+
+	//已取消时间关联
+	adds = ZOOMFACTOR_DRAG*zoom;
+
+	//拖动倍率
+	adds *= wParam;
+
+	//放大缩小速度平衡
+	if (adds < 0)
+		adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
+
+	//最小变化值
+	if (wParam > 0 && adds < ZOOM_MINDELTA)
+		adds = ZOOM_MINDELTA;
+	else if (wParam < 0 && adds > -ZOOM_MINDELTA)
+		adds = -ZOOM_MINDELTA;
+
+	zoom += adds;
+	//zoom上下限
+	if (zoom > ZOOM_MAX)
+		zoom = ZOOM_MAX;
+	if (zoom < ZOOM_MIN)
+		zoom = ZOOM_MIN;
+
+	PostZoomChange();
+}
+
+void SurferBase::SurfAdjustZoom_WheelPR(int wParam)
+{
+	float adds = 0;
+	QueryPerformanceCounter(&wheeltick);
+
+	//变化量相关于时间和当前放大倍率
+	adds = (sqrtf(freq.QuadPart / (float)(wheeltick.QuadPart - lastwheeltick.QuadPart))
+		*(ZOOMFACTOR_WHEEL*zoom));
+	lastwheeltick.QuadPart = wheeltick.QuadPart;
+
+	//滚轮幅度倍率（正负表示滚轮方向）
+	adds *= wParam / 120.0f;
+
+	//放大缩小速度平衡
+	if (adds < 0)
+		adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
+
+	//最小变化值
+	if (wParam > 0 && adds < ZOOM_MINDELTA)
+		adds = ZOOM_MINDELTA;
+	else if (wParam < 0 && adds > -ZOOM_MINDELTA)
+		adds = -ZOOM_MINDELTA;
+
+	zoom += adds;
+	//zoom上下限
+	if (zoom > ZOOM_MAX)
+		zoom = ZOOM_MAX;
+	if (zoom < ZOOM_MIN)
+		zoom = ZOOM_MIN;
+	/*if (zoom*min(*pBmpW, *pBmpH) < 1)
+	zoom = 1.00001f / min(*pBmpW, *pBmpH);//控制surface尺寸>0*/
+
+	PostZoomChange();
+}
+
+inline void Surfer::CalcBindState()
+{
+	bHasPic = (pBmp != NULL);
+	bHasDevice = pDevice && pBufferW && pBufferH;
+	bHasBoth = bHasDevice && bHasPic;
+}
+
+inline void	Surfer::CalcMapInfo()
+{
+	if (bHasDevice)
+	{
+		//计算rcSurf和surfDest
+		//surfDest：surface拷贝到backbuffer起点，创建surface时计算过，还需要实时计算（如surf移动但是不需要刷新）
+		if (surfBase.x < 0)
+			surfDest.x = 0;
+		else
+			surfDest.x = surfBase.x;
+		if (surfBase.y < 0)
+			surfDest.y = 0;
+		else
+			surfDest.y = surfBase.y;
+
+		if (bClip)
+		{
+			rcSurf.left = 0;
+			rcSurf.top = 0;
+			rcSurf.right = min((int)*pBufferW - surfDest.x, surfSize.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
+			rcSurf.bottom = min((int)*pBufferH - surfDest.y, surfSize.y);
+		}
+		else
+		{
+			rcSurf.left = max(-surfBase.x, 0);
+			rcSurf.top = max(-surfBase.y, 0);
+			rcSurf.right = min(zoomW, rcSurf.left + (int)*pBufferW - surfDest.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
+			rcSurf.bottom = min(zoomH, rcSurf.top + (int)*pBufferH - surfDest.y);
+		}
+	}
+}
+
+Surfer::Surfer() {
+	surf = NULL;
+	pDevice = NULL;
+	bHasDevice = false;
+	bHasBoth = false;
+
+	//surfrenewcount = 0;
+	renewTime = -0.001f;
+	sampleSchema = SAMPLE_SCHEMA_UNKNOWN;
+	strSurfInfo[0] = (WCHAR)'\0';
+
 	bSurfFailed = true;
 	bSurfClipped = false;
 
-	ZEROPOINT(surfBase)
-	ZEROPOINT(basePoint)
-	ZEROPOINT(surfDest)
-	ZERORECT(rcSurf)
+	ZEROPOINT(surfDest);
+	ZERORECT(rcSurf);
 
-	ZEROPOINT(surfSize)
-	bPicClipped = false;
-	bOutClient = false;
 
-	SETPOINT(cursorPixel, -1, -1)
+	SETPOINT(cursorPixel, -1, -1);
 	bCursorOnPic = false;
 	cursorColor = 0;
 	cursorPos = CURSORPOS_BLANK;
@@ -361,12 +462,18 @@ Surfer::Surfer() {
 Surfer::~Surfer()
 {
 	SAFE_RELEASE(surf);
+	SAFE_RELEASE(pDevice);
 }
 
 bool Surfer::BindDevice(LPDIRECT3DDEVICE9 device)
 {
+	SAFE_RELEASE(pDevice);//解除引用
 	pDevice = device;
+	if(pDevice)
+		pDevice->AddRef();//增加引用计数
 
+	LPDIRECT3DSURFACE9 pSurf;
+	pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_LEFT, &pSurf);
 	CalcBindState();
 
 	return pDevice != NULL;
@@ -382,36 +489,25 @@ bool Surfer::BindBuf(UINT * pBufW, UINT * pBufH)
 	return pBufferW && pBufferH;
 }
 
-void Surfer::SetBackcolor(DWORD color)
-{
-	BackgroundColor = color;
-}
-
 bool Surfer::BindPic(PicPack * ppic, bool renew)
 {
 	if (ppic)
 	{
 		// 捆绑指针
 		pBmp = ppic->GetPBMP();
-		pBmpW = &pBmp->width;
-		pBmpH = &pBmp->height;
-
-		// 信息导入
-		surfBase = ppic->GetBase();
-		surfZoom = ppic->GetZoom();
-		lastSurfZoom = surfZoom;
-
-		//zoomW, zoomH更新，这些之后未必重新计算，在这里需要计算
-		zoomW = (int)(surfZoom**pBmpW);
-		zoomH = (int)(surfZoom**pBmpH);
-		actualZoomX = (float)zoomW / *pBmpW;
-		actualZoomY = (float)zoomH / *pBmpH;
+		/*pBmpW = &pBmp->width;
+		pBmpH = &pBmp->height;*/
 
 		// 更新捆绑状态
 		CalcBindState();
 
+		// 信息导入
+		SurfLocatePR(ppic->GetBase());
+		SurfSetZoomPR(ppic->GetZoom());
+		lastZoom = zoom;
+
 		if (renew)
-			SurfRenew(false);
+			SurfRenew(true);
 		SetInfoStr();// 更新信息字符串
 	}
 	else
@@ -427,7 +523,7 @@ bool Surfer::DeBindPic(PicPack *ppic)
 	if (ppic)
 	{
 		ppic->SetSrc(surfBase);
-		ppic->SetZoom(surfZoom);
+		ppic->SetZoom(zoom);
 
 		CalcBindState();
 
@@ -437,68 +533,10 @@ bool Surfer::DeBindPic(PicPack *ppic)
 		return false;
 }
 
-//void Surfer::Refresh()
-//{
-//	if (bPicOn)
-//	{
-//		zoomW = (int)(surfZoom**pBmpW);
-//		zoomH = (int)(surfZoom**pBmpH);
-//		actualZoomX = (float)zoomW / *pBmpW;
-//		actualZoomY = (float)zoomH / *pBmpH;
-//
-//		SurfRenew(false);
-//		SetInfoStr();// 更新信息字符串
-//	}
-//	else
-//	{
-//
-//	}
-//}
-
-void Surfer::SetBasePoint(POINT color)
-{
-	basePoint = color;
-}
-
-void Surfer::PostSurfPosChange()
-{
-	bOutClient = (
-		surfBase.x > zoomW || surfBase.y > zoomH	//区域超出surface右或下
-		|| surfBase.x + (int)*pBufferW <= 0			//区域右下不够surface左或上
-		|| surfBase.y + (int)*pBufferH <= 0
-		);
-	bPicClipped = (
-		surfBase.x > 0 || surfBase.y > 0			//surface左上上侧需bClip
-		|| zoomW - surfBase.x > (int)*pBufferW		//surface右侧需bClip
-		|| zoomH - surfBase.y > (int)*pBufferH		//surface下侧需bClip
-		);
-
-	SETPOINT(surfSize, (LONG)zoomW, (LONG)zoomH);
-	if (bClip)
-	{
-		// surface左侧clip
-		if (surfBase.x > 0)
-			surfSize.x -= surfBase.x;
-		// surface上侧clip
-		if (surfBase.y > 0)
-			surfSize.y -= surfBase.y;
-		// surface右侧clip
-		if ((LONG)zoomW - surfBase.x > (int)*pBufferW)
-			surfSize.x -= zoomW - surfBase.x - (int)*pBufferW;
-		// surface下侧clip
-		if ((LONG)zoomH - surfBase.y > (int)*pBufferH)
-			surfSize.y -= zoomH - surfBase.y - (int)*pBufferH;
-	}
-}
-
 void Surfer::Clear()
 {
 	SAFE_RELEASE(surf);//释放surface
 	pBmp = NULL;
-	pBmpW = NULL;
-	pBmpH = NULL;
-
-	sampleSchema = SAMPLE_SCHEMA_UNKNOWN;
 
 	zoomW = 0;
 	zoomH = 0;
@@ -518,6 +556,135 @@ void Surfer::Clear()
 
 	CalcBindState();
 	SetInfoStr();
+}
+
+bool Surfer::SurfSuit(int w, int h)
+{
+	if (bHasBoth)
+	{
+		if (w < 1 || h < 1)
+			return false;
+
+		return SurfZoomRenew(min((float)w / pBmp->width, (float)h / pBmp->height), -surfBase.x, -surfBase.y);
+	}
+	else
+		return false;
+}
+
+void Surfer::SetInfoStr()
+{
+	WCHAR subinfo[256] = { 0 };
+	strSurfInfo[0] = L'\0';
+
+	// buffer尺寸、surface尺寸
+	// 缩放倍率
+	// surface起始点
+	swprintf_s(subinfo, L"SURFACE: %d × %d     TIME: %.3fms (%S)\n\
+		ZOOM: %.4f\n\
+		BASE: %d, %d\n"
+		, surfSize.x, surfSize.y, renewTime*1000.0f, GetSampleSchemaStr()
+		, zoom
+		, surfBase.x, surfBase.y);
+	wcscat_s(strSurfInfo, subinfo);
+
+	// 鼠标像素位置
+	if (pBmp)
+	{
+		if (pBmp->isNotEmpty())
+			swprintf_s(subinfo, L"PIXEL: %d, %d\n", cursorPixel.x, cursorPixel.y);
+		else
+			swprintf_s(subinfo, L"PIXEL:-, -\n");
+	}
+	else
+		swprintf_s(subinfo, L"PIXEL:-, -\n");
+	wcscat_s(strSurfInfo, subinfo);
+
+	// 鼠标像素颜色、屏幕像素颜色、背景色
+	COLOR_F3 hsvc = RGB2HSV_F3(cursorColor);
+	if (bCursorOnPic)
+		swprintf_s(subinfo, L"COLOR: #%02X.%06X.ARGB\n\
+			              %d, %d, %d, %d.ARGB\n\
+			              %.1f, %.2f, %.0f.HSV\n"
+			, (cursorColor >> 24), (cursorColor & 0xFFFFFF)
+			, (cursorColor >> 24), (cursorColor >> 16) & 0xFF, (cursorColor >> 8) & 0xFF, cursorColor & 0xFF
+			, hsvc.r, hsvc.g, hsvc.b);
+	else
+		swprintf_s(subinfo, L"COLOR: ??.??????.ARGB\n");
+	wcscat_s(strSurfInfo, subinfo);
+
+	// 附加信息
+	//"intended surface: %d× %d\n
+	//	clipsurface base: %d, %d\n
+	//	PZ: X %.4f Y %.4f\n"
+	//	, zoomW, zoomH
+	//	, surfDest.x, surfDest.y
+	//	, actualZoomX, actualZoomY
+}
+
+void Surfer::GetCurInfo(POINT *cursor, RECT *rcClient)
+{
+	if (bHasPic)
+	{
+		if (!cursor || !rcClient)
+			return;
+
+		// 获得当前鼠标位置（种类）
+		POINT surf2cursor = { cursor->x - rcClient->left - surfBase.x
+			, cursor->y - rcClient->top - surfBase.y };
+		if (OUTSIDE(*cursor, *rcClient))
+			cursorPos = CURSORPOS_OUTWINDOW;
+		else if (!surf)
+			cursorPos = CURSORPOS_BLANK;
+		else if (OUTSIDE2(surf2cursor, zoomW - 1, zoomH - 1))
+			cursorPos = CURSORPOS_BLANK;
+		else
+			cursorPos = CURSORPOS_PIC;
+
+		// 所处像素
+		//如果除以actualzoom，和surface不一定匹配，因为surface按照realzoom生成，未计算actualzoom
+		cursorPixel.x = (LONG)((surf2cursor.x + 0.5f) / zoom);
+		cursorPixel.y = (LONG)((surf2cursor.y + 0.5f) / zoom);
+
+		// 获取所处像素颜色
+		if (cursorPos != CURSORPOS_PIC)//所处像素超出图片范围获鼠标超出窗口范围
+		{
+			cursorColor = 0;
+			bCursorOnPic = false;
+		}
+		else
+			bCursorOnPic = pBmp->GetPixel(cursorPixel.x, cursorPixel.y, &cursorColor);
+
+		// 更新信息字符串
+		SetInfoStr();
+	}
+}
+
+char* Surfer::GetSampleSchemaStr()
+{
+	switch (sampleSchema)
+	{
+	case SAMPLE_SCHEMA_UNKNOWN:
+		return "unknown";
+		break;
+	case SAMPLE_SCHEMA_NN:
+		return "nn";
+		break;
+	case SAMPLE_SCHEMA_BILINEAR:
+		return "bi linear";
+		break;
+	case SAMPLE_SCHEMA_CUBE:
+		return "cube";
+		break;
+	case SAMPLE_SCHEMA_SINGLE:
+		return "single";
+		break;
+	case SAMPLE_SCHEMA_MAX:
+		return "max";
+		break;
+	default:
+		return "unknown";
+		break;
+	}
 }
 
 void ALPHABLEND::InitAlphBlendTable(byte color1, byte color2)
@@ -598,7 +765,7 @@ PicPack::PicPack()
 
 PicPack::~PicPack()
 {
-	delete pBmp;
+	SAFE_DELETE(pBmp);
 	pBmp = NULL;
 }
 

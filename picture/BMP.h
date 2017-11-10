@@ -26,6 +26,7 @@
 
 // 内存
 #define SAFE_RELEASE(p)					{ if (p) { (p)->Release(); (p) = NULL; } }
+#define SAFE_DELETE(p)					{ if (p) { delete (p); (p) = NULL;} }
 #define SAFE_DELETE_LIST(p)				{ if (p) { delete[] (p); (p) = NULL;} }
 #define DELETE_LIST(p)					{ delete[] (p); (p) = NULL; }
 #define FAILED_RETURN(hr)				{ if (FAILED(hr)) return hr; }
@@ -60,10 +61,10 @@
 #define SAMPLE_SCHEMA_MAX				5
 
 #define NN_MIN							3.0f	//大于这个放大倍率使用NN采样
-#define MAXSAMPLE_WIDTH_UPPERLIMIT		20000	//大于这个尺寸图片默认不进行最大采样MAXSAMPLE
+#define MAXSAMPLE_WIDTH_UPPERLIMIT		20000	//大于这个尺寸图片不进行最大采样MAXSAMPLE
 #define MAXSAMPLE_HEIGHT_UPPERLIMIT		MAXSAMPLE_WIDTH_UPPERLIMIT
 
-#define MIN_NORMALRENEW_WIDTH			500		//图片小于这个尺寸，在加速bRenewed时才允许使用SingleSample(太大缩放过程可能有卡顿)
+#define MIN_NORMALRENEW_WIDTH			300		//图片小于这个尺寸，在加速时才允许使用SingleSample(太大缩放过程可能有卡顿)
 #define MIN_NORMALRENEW_HEIGHT			MIN_NORMALRENEW_WIDTH
 
 #define MIN_FORCECLIP_WIDTH				1500	//图片大于这个尺寸，则设置bClip。增加缩放速度
@@ -433,10 +434,10 @@ public:
 	surfBias:surface相对原图偏移（用于原图选区）
 	destBase:surface相对client窗口（用于辅助透明背景绘制）
 
-	双线性插值的两种策略（有色差，无色差）在Copy_Single中详细定义
+	双线性插值的两种策略（有色差，无色差）在Sample_Single中详细定义
 	****************************************************/
 	// 最大无损失采样（缩小效果较好，缩小速度最慢）
-	inline bool MYCALL1 Copy_MaxSample(DWORD *surfData, int pitch, const POINT &surfSize
+	inline bool MYCALL1 Sample_Area(DWORD *surfData, int pitch, const POINT &surfSize
 		, float zoom, float rotate = 0, const POINT surfbias = { 0,0 }, const POINT backbase = { 0,0 }) 
 	{
 		UINT32 zoomW = (UINT32)(width*zoom);
@@ -580,7 +581,7 @@ public:
 		return true;
 	}
 	// NN和bilinear结合，跨交界处像素使用bilinear（优化的马赛克版本放大，缩小近似于bilinear）
-	inline bool MYCALL1 Copy_Single(DWORD *surfData, int pitch, const POINT &surfSize
+	inline bool MYCALL1 Sample_Single(DWORD *surfData, int pitch, const POINT &surfSize
 		, float zoom, float rotate = 0, const POINT surfbias = { 0,0 }, const POINT backbase = { 0,0 }) 
 	{
 		int index;
@@ -851,7 +852,7 @@ public:
 		return true;
 	}
 	// 最近邻近（放大缩小都可以，效果不会太好）
-	inline bool MYCALL1 Copy_NN(DWORD *surfData, int pitch, const POINT &surfSize
+	inline bool MYCALL1 Sample_NN(DWORD *surfData, int pitch, const POINT &surfSize
 		, float zoom, float rotate = 0, const POINT surfBias = { 0,0 }, const POINT backbase = { 0,0 }) 
 	{
 		int index;
@@ -947,7 +948,7 @@ public:
 		return true;
 	}
 	// 双线性（缩小过多或放大过多效果差）
-	inline bool MYCALL1 Copy_BiLinear(DWORD *surfData, int pitch, const POINT &surfSize
+	inline bool MYCALL1 Sample_BiLinear(DWORD *surfData, int pitch, const POINT &surfSize
 		, float zoom, float rotate = 0, const POINT surfbias = { 0,0 }, const POINT backbase = { 0,0 }) 
 	{
 		int index;
@@ -1228,7 +1229,7 @@ class PicPack {
 private:
 	BMP *pBmp;
 	PicInfo myPicInfo;				//图片信息
-	D3DXIMAGE_INFO D3DPicInfo;		//自定图片信息
+	D3DXIMAGE_INFO D3DPicInfo;		//自定图片信息,TODO待完善
 	WCHAR strFileName[MAX_PATH];	//文件名
 
 	bool bSaved;
@@ -1307,777 +1308,635 @@ public:
 	bool Add(PicPack *newpp);
 };
 
-/*********************************************
-*********************************************/
-struct Surfer {
-private:
-	LPDIRECT3DSURFACE9 surf;				//surface
-	LPDIRECT3DDEVICE9 pDevice;				//设备指针·捆绑
+class SurferBase {
+protected:
 	BMP *pBmp;								//BMP指针·捆绑
-	int *pBmpW, *pBmpH;						//BMP尺寸·捆绑
 	UINT *pBufferW, *pBufferH;				//目标surface尺寸·捆绑
-	bool bHasPic, bHasDevice, bHasBoth;		//是否具备捆绑值（捆绑对象）
+	bool bHasPic;
+	bool bNeedRenew;
+
+	// 计时
+	LARGE_INTEGER wheeltick, lastwheeltick;	//滚轮计时
+	LARGE_INTEGER freq;						//频率
+
+	// 参数
+	POINT basePoint;						//用于dragzoom的中心点
+	
+public:
+	// 映射参数
+	float			zoom;					//★放大倍数
+	float			lastZoom;				//★上一个放大倍数
+	int				zoomW, zoomH;			//放大zoom倍后surface的尺寸（不clip的情况），【减少临时运算量，需要手动更新】(需要手动更新场合：缩放，捆绑图片)
+	// 映射状态
+	float			actualZoomX, actualZoomY;//实际x,y方向上的放大倍数【暂时只用来查看】
+
+	// "源SURFACE" 映射 "目标SURFACE" 参数
+	POINT			surfBase;				//★放大zoom倍的假想surface相对窗口客户区的位置（左上角）
+	// 映射状态
+	POINT			oldSurfSize;			//存储最后一次surfRenew时的尺寸
+	POINT			surfSize;				//★surface尺寸
+	bool			bPicClipped;			//当前图片是否clip(bPicClipped和bOutClient只在特定函数中计算，需要确保被更新)
+	bool			bOutClient;				//surface和窗口客户区是否无交集（在客户区外）
+
+	// "BMP" 映射 "SURFACE" 选项
+	bool			bClip;					//★surface是否clip（截去客户区外区域）
+
+	SurferBase();
+
+	inline POINT	GetBase() const;
+	inline float	GetZoom() const;
+	inline int		GetZoomWidth() const;
+	inline int		GetZoomHeight() const;
+	inline void		SetClip(bool clip);
+	// surface刷新前操作，定位缩放操作的参数准备
+	inline void		SetBasePoint(POINT color);
+	inline void		SurfHomePR();		//surface回原点
+	inline void		SurfLocatePR(LONG x, LONG y);	//surface定位
+	inline void		SurfLocatePR(POINT base);
+	inline void		SurfCenterPR(int bufferW, int bufferH);
+	inline void		SurfMovePR(int dx, int dy);
+	//这3个仅用于以一定规则调整缩放倍率的值，并更新zoomW,zoomH等（实际缩放需要另一个函数，在另一个函数中使用调整后的倍率）
+	inline void		SurfSetZoomPR(float zoom);// 设置surface缩放倍率
+	//这两个仅仅调整zoom，其他不做修改
+	void			SurfAdjustZoom_DragPR(int wParam);
+	void			SurfAdjustZoom_WheelPR(int wParam);
+protected:
+	inline void		CalcBindState();
+	inline void		CalcSurfSize();
+	inline void		PostSurfPosChange();
+	inline void		PostZoomChange();
+};
+
+inline POINT SurferBase::GetBase() const
+{
+	return surfBase;
+}
+
+inline float SurferBase::GetZoom() const
+{
+	return zoom;
+}
+
+inline int SurferBase::GetZoomWidth() const
+{
+	return zoomW;
+}
+
+inline int SurferBase::GetZoomHeight() const
+{
+	return zoomH;
+}
+
+inline void SurferBase::SetClip(bool clip)
+{
+	if (bClip != clip)
+	{
+		bClip = clip;
+
+		CalcSurfSize();
+	}
+}
+
+inline void SurferBase::SetBasePoint(POINT color)
+{
+	basePoint = color;
+}
+
+inline void SurferBase::SurfHomePR()
+{
+	surfBase.x = 0;
+	surfBase.y = 0;
+
+	PostSurfPosChange();
+}
+
+inline void SurferBase::SurfLocatePR(LONG x, LONG y)
+{
+	surfBase.x = x;
+	surfBase.y = y;
+
+	PostSurfPosChange();
+}
+
+inline void SurferBase::SurfLocatePR(POINT base)
+{
+	surfBase = base;
+
+	PostSurfPosChange();
+}
+
+inline void SurferBase::SurfCenterPR(int bufferW, int bufferH)
+{
+	surfBase.x = (LONG)(bufferW / 2 - zoomW / 2);
+	surfBase.y = (LONG)(bufferH / 2 - zoomH / 2);
+
+	PostSurfPosChange();
+}
+
+inline void SurferBase::SurfMovePR(int dx, int dy)
+{
+	surfBase.x += dx;
+	surfBase.y += dy;
+
+	PostSurfPosChange();
+}
+
+inline void SurferBase::SurfSetZoomPR(float zoom)
+{
+	this->zoom = zoom;
+	PostZoomChange();
+}
+
+inline void SurferBase::CalcBindState()
+{
+	bHasPic = (pBmp != NULL)/* && pBmpW && pBmpH*/;
+}
+
+inline void SurferBase::CalcSurfSize()
+{
+	if (pBufferW != NULL && pBufferH != NULL)
+	{
+		SETPOINT(surfSize, (LONG)zoomW, (LONG)zoomH);
+		if (bClip)
+		{
+			// surface左侧clip
+			if (surfBase.x < 0)
+				surfSize.x += surfBase.x;
+			// surface上侧clip
+			if (surfBase.y < 0)
+				surfSize.y += surfBase.y;
+			// surface右侧clip
+			if (surfBase.x + (LONG)zoomW > (int)*pBufferW)
+				surfSize.x -= surfBase.x + zoomW - (int)*pBufferW;
+			// surface下侧clip
+			if (surfBase.y + (LONG)zoomH > (int)*pBufferH)
+				surfSize.y -= surfBase.y + zoomH - (int)*pBufferH;
+		}
+	}
+}
+
+inline void SurferBase::PostSurfPosChange()
+{
+	bNeedRenew = true;
+	if (pBufferW != NULL && pBufferH != NULL)
+	{
+		bPicClipped = (
+			surfBase.x < 0 || surfBase.y < 0			//surface左上上侧需bClip
+			|| surfBase.x + zoomW  >(int)*pBufferW		//surface右侧需bClip
+			|| surfBase.y + zoomH  >(int)*pBufferH		//surface下侧需bClip
+			);
+		bOutClient = (
+			surfBase.x < -zoomW || surfBase.y < -zoomH	//区域超出surface右或下
+			|| surfBase.x >= (int)*pBufferW				//区域右下不够surface左或上
+			|| surfBase.y >= (int)*pBufferH
+			);
+
+		CalcSurfSize();
+	}
+}
+
+inline void	SurferBase::PostZoomChange()
+{
+	bNeedRenew = true;
+	if (bHasPic)
+	{
+		zoomW = (int)(zoom*pBmp->width);
+		zoomH = (int)(zoom*pBmp->height);
+		actualZoomX = (float)zoomW / pBmp->width;
+		actualZoomY = (float)zoomH / pBmp->height;
+	}
+
+	PostSurfPosChange();
+}
+
+class Surfer :public SurferBase {
+protected:
+	LPDIRECT3DSURFACE9 surf;				//surface，生成的图片
+	LPDIRECT3DDEVICE9 pDevice;				//设备指针·捆绑
+	bool bHasDevice, bHasBoth;				//是否具备捆绑值（捆绑对象）
 
 public:
 	// 信息
 	//int surfrenewcount;					//surface更新计数
 	float renewTime;						//surface更新耗时
 	UINT8 sampleSchema;						//采样策略
-	WCHAR surferInfoStr[512];				//信息字符串
-
-	// 计时
-	LARGE_INTEGER wheeltick, lastwheeltick;	//滚轮计时
-	LARGE_INTEGER freq;						//频率
+	WCHAR strSurfInfo[512];					//信息字符串
 
 	/******************************************************************************
-	surfBase是自由变量，是BMP显示到目标SURFACE的主键，和"选项"共同作用。逻辑上可分离，作为属于的BMP信息。
-	其他变量内部维护
-	surfBase和pBmp（或bClip,zoom）迁移过来后，在SurfRenew之前，需更新:【zoomW，zoomH或lastSurfZoom】&信息
+	surfBase是自由变量，逻辑上可分离，作为属于BMP的信息。
+	surfBase和pBmp（或bClip,zoom）迁移过来后，在SurfRenew之前，需更新:zoomW，zoomH或lastZoom&信息
 	*******************************************************************************/
 
-	// "BMP" 映射 "SURFACE" 选项
-	bool bClip;								//surface是否bClip（截去客户区外区域）
-	DWORD BackgroundColor;					//背景色（暂时没用）
-	// "BMP" 映射 "SURFACE" 参数
-	float surfZoom;							//直接操控的放大倍数
-	float lastSurfZoom;						//上一个放大倍数
-	int zoomW, zoomH;						//放大surfZoom倍后假想surface的尺寸，【减少临时运算量，需要手动同步更新】(需要手动更新场合：缩放，捆绑图片)
+	// "源SURFACE" 映射 "目标SURFACE" 直接参数
+	POINT			surfDest;				//★surface拷贝到backbuffer, backbuffer的起始点
+	RECT			rcSurf;					//★surface要拷贝到backbuffer的区域
 
 	// "BMP" 映射 "SURFACE" 状态
-	float actualZoomX, actualZoomY;			//实际x,y方向上的放大倍数【这个标志暂时只用来查看】
-	bool bSurfFailed;						//surface是否创建失败，在有mainbmp情况下【这个标志暂时只用来查看，需要手动同步更新】
-	bool bSurfClipped;						//当前surface是否bClip
+	bool			bSurfFailed;			//surface是否创建失败，在有mainbmp情况下【暂时只用来查看，需要手动更新】
+	bool			bSurfClipped;			//当前surface是否bClip
 
-	// "源SURFACE" 映射 "目标SURFACE" 参数
-	POINT surfBase;							//放大surfZoom倍的假想surface的左上角到窗口客户区的向量
-	POINT basePoint;						//用于dragzoom的中心点
-	// "源SURFACE" 映射 "目标SURFACE" 直接参数
-	POINT surfDest;							//surface拷贝到backbuffer, backbuffer的起始点
-	RECT rcSurf;							//surface要拷贝到backbuffer的区域
-
-	// "源SURFACE" 映射 "目标SURFACE" 状态
-	POINT oldSurfSize;						//存储最后一次surfRenew时的尺寸
-	POINT surfSize;							//surface尺寸
-	bool bPicClipped;						//当前图片是否bClip
-	bool bOutClient;						//surface和窗口客户区是否无交集（在客户区外）
-// 信息
-	POINT cursorPixel;						//鼠标当前位置对应原图的像素
-	bool bCursorOnPic;						//鼠标是否在图片上
-	DWORD cursorColor;						//鼠标当前位置对应原图的颜色
-	UINT8 cursorPos;						//当前鼠标位置（种类，处于哪个区域：图片、空白、窗口外）
-
-	void CalcBindState();					// 更新捆绑标志（捆绑的状态）
-	//void Refresh();							//【bPicOn】更新已捆绑的图片关键信息(zoomW,zoomH)【原图片尺寸变化时需要更新】
+	// 鼠标信息
+	POINT			cursorPixel;			//鼠标当前位置对应原图的像素
+	bool			bCursorOnPic;			//鼠标是否在图片上
+	DWORD			cursorColor;			//鼠标当前位置对应原图的颜色
+	UINT8			cursorPos;				//当前鼠标位置（种类，处于哪个区域：图片、空白、窗口外）
 
 private:
-	// 【bHasDevice】计算映射到目标surface参数
-	inline void SurfCalcMapInfo()
-	{
-		if (bHasDevice)
-		{
-			//计算rcSurf和surfDest
-			//surfDest：surface拷贝到backbuffer起点，创建surface时计算过，还需要实时计算
-			if (surfBase.x > 0)
-				surfDest.x = 0;
-			else
-				surfDest.x = -surfBase.x;
-			if (surfBase.y > 0)
-				surfDest.y = 0;
-			else
-				surfDest.y = -surfBase.y;
-
-			if (bClip)
-			{
-				rcSurf.left = 0;
-				rcSurf.top = 0;
-				rcSurf.right = min((int)*pBufferW - surfDest.x, surfSize.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
-				rcSurf.bottom = min((int)*pBufferH - surfDest.y, surfSize.y);
-			}
-			else
-			{
-				rcSurf.left = max(surfBase.x, 0);//如果起始点surfBase某一维小于0，则平移区域到0起点，并设置destpoint为非0
-				rcSurf.top = max(surfBase.y, 0);
-				rcSurf.right = min(zoomW, rcSurf.left + (int)*pBufferW - surfDest.x);//如果起始点右下区域不够窗口客户区，则削减右侧和下侧
-				rcSurf.bottom = min(zoomH, rcSurf.top + (int)*pBufferH - surfDest.y);
-			}
-		}
-	}
+	inline void		CalcBindState();		// 更新捆绑标志（捆绑的状态）
+	inline void		CalcMapInfo();			// 【bHasDevice】计算映射到目标surface参数
 
 public:
 	Surfer();
 	~Surfer();
 
-	inline bool IsSurfNull() const
+	inline bool		IsSurfNull() const
 	{
 		return surf == NULL;
 	}
-	inline bool IsSurfNotNull() const
+	inline bool		IsSurfNotNull() const
 	{
 		return surf != NULL;
 	}
-	inline POINT GetBase() const
-	{
-		return surfBase;
-	}
-	inline float GetZoom() const
-	{
-		return surfZoom;
-	}
-	inline int GetZoomWidth() const
-	{
-		return zoomW;
-	}
-	inline int GetZoomHeight() const
-	{
-		return zoomH;
-	}
-	inline void SetClip(bool clip)
-	{
-		if (bClip != clip)
-		{
-			bClip = clip;
-
-			SETPOINT(surfSize, (LONG)zoomW, (LONG)zoomH);
-			if (bClip)
-			{
-				// surface左侧clip
-				if (surfBase.x > 0)
-					surfSize.x -= surfBase.x;
-				// surface上侧clip
-				if (surfBase.y > 0)
-					surfSize.y -= surfBase.y;
-				// surface右侧clip
-				if ((LONG)zoomW - surfBase.x > (int)*pBufferW)
-					surfSize.x -= zoomW - surfBase.x - (int)*pBufferW;
-				// surface下侧clip
-				if ((LONG)zoomH - surfBase.y > (int)*pBufferH)
-					surfSize.y -= zoomH - surfBase.y - (int)*pBufferH;
-			}
-		}
-	}
 
 // 设备
-	bool BindDevice(LPDIRECT3DDEVICE9 device);//捆绑设备
-	bool BindBuf(UINT * pBufW, UINT *pBufH);//捆绑目标surface尺寸
-	void SetBackcolor(DWORD color);			//设置背景颜色
+	bool			BindDevice(LPDIRECT3DDEVICE9 device);//捆绑设备
+	bool			BindBuf(UINT * pBufW, UINT *pBufH);//捆绑目标surface尺寸
 
 // 图片
-	bool BindPic(PicPack *ppic, bool renew = true);//捆绑图片（可以捆绑NULL来清除，或加载/切换图片）
-	bool DeBindPic(PicPack *ppic);			//解绑图片
-	void Clear();							// 清除,释放与图片的捆绑
-	
-// surface刷新前操作，定位缩放操作的参数准备
-	void SetBasePoint(POINT color);
-	void PostSurfPosChange();
-	inline void SurfHomingPR()
-	{
-		surfBase.x = 0;
-		surfBase.y = 0;
-
-		PostSurfPosChange();
-	}											//surface回原点
-	inline void SurfLocatePR(LONG x, LONG y)	//surface定位
-	{
-		surfBase.x = x;
-		surfBase.y = y;
-
-		PostSurfPosChange();
-	}
-	//surface居中（相对目标surface）
-	inline void SurfCenterPR(int bufferW, int bufferH)
-	{
-		surfBase.x = (LONG)(zoomW / 2 - bufferW / 2);
-		surfBase.y = (LONG)(zoomH / 2 - bufferH / 2);
-
-		PostSurfPosChange();
-	}
-	//surface移动，不带surface更新，外部条件更新
-	inline void SurfMovePR(int dx, int dy)
-	{
-		surfBase.x -= dx;
-		surfBase.y -= dy;
-
-		PostSurfPosChange();
-	}
-	//（仅用于以一定规则调整缩放倍率的值，实际缩放需要另一个函数，在另一个函数中使用调整后的倍率）
-	inline void SurfSetZoomPR(float zoom)// 设置surface缩放倍率
-	{
-		surfZoom = zoom;
-	}
-	inline void SurfAdjustZoom_DragPR(int wParam)
-	{
-		float adds = 0;
-		QueryPerformanceCounter(&wheeltick);
-
-		//变化量相关于时间和当前放大倍率（后来取消时间关联）
-		adds = ZOOMFACTOR_DRAG*surfZoom;
-		lastwheeltick.QuadPart = wheeltick.QuadPart;
-
-		//拖动倍率
-		adds *= wParam;		
-
-		//放大缩小速度平衡
-		if (adds < 0)
-			adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
-
-		//最小变化值
-		if (wParam > 0 && adds < ZOOM_MINDELTA)
-			adds = ZOOM_MINDELTA;
-		else if (wParam < 0 && adds > -ZOOM_MINDELTA)
-			adds = -ZOOM_MINDELTA;
-
-		surfZoom += adds;
-		//zoom上下限
-		if (surfZoom > ZOOM_MAX)
-			surfZoom = ZOOM_MAX;
-		if (surfZoom < ZOOM_MIN)
-			surfZoom = ZOOM_MIN;
-	}
-	inline void SurfAdjustZoom_WheelPR(int wParam)
-	{
-		float adds = 0;
-		QueryPerformanceCounter(&wheeltick);
-
-		//变化量相关于时间和当前放大倍率
-		adds = (sqrtf(freq.QuadPart / (float)(wheeltick.QuadPart - lastwheeltick.QuadPart))
-			*(ZOOMFACTOR_WHEEL*surfZoom));
-		lastwheeltick.QuadPart = wheeltick.QuadPart;
-
-		//滚轮幅度倍率（正负表示滚轮方向）
-		adds *= wParam / 120.0f;
-
-		//放大缩小速度平衡
-		if (adds < 0)
-			adds *= ZOOMFACTOR_ZOOMOUTSHRINK;
-
-		//最小变化值
-		if (wParam > 0 && adds < ZOOM_MINDELTA)
-			adds = ZOOM_MINDELTA;
-		else if (wParam < 0 && adds > -ZOOM_MINDELTA)
-			adds = -ZOOM_MINDELTA;
-
-		surfZoom += adds;
-		//zoom上下限
-		if (surfZoom > ZOOM_MAX)
-			surfZoom = ZOOM_MAX;
-		if (surfZoom < ZOOM_MIN)
-			surfZoom = ZOOM_MIN;
-		/*if (surfZoom*min(*pBmpW, *pBmpH) < 1)
-		surfZoom = 1.00001f / min(*pBmpW, *pBmpH);//控制surface尺寸>0*/
-	}
+	bool			BindPic(PicPack *ppic, bool renew = true);//捆绑图片（可以捆绑NULL来清除，或加载/切换图片）
+	bool			DeBindPic(PicPack *ppic);			//解绑图片
+	void			Clear();							// 清除,释放与图片的捆绑
 
 //surface缩放（强制捆绑刷新操作）
 	// 【bHasBoth】根据调整值缩放，并设定位移量，更新映射参数，返回surface是否刷新
-	inline bool SurfZoomRenew(float zoom = -1, int dx = 0, int dy = 0)
-	{
-		if (bHasBoth)
-		{
-			//zoom阶段
-			if (lastSurfZoom == zoom && dx == 0 && dy == 0)
-				return false;
-
-			surfBase.x += dx;
-			surfBase.y += dy;
-
-			if (zoom >= 0)
-				surfZoom = zoom;
-
-			zoomW = (int)(surfZoom**pBmpW);
-			zoomH = (int)(surfZoom**pBmpH);
-			actualZoomX = (float)zoomW / *pBmpW;
-			actualZoomY = (float)zoomH / *pBmpH;
-
-			//更新标志
-			SetClip(true);
-			PostSurfPosChange();
-
-			lastSurfZoom = surfZoom;
-
-			return SurfRenew(false);
-		}
-		else
-			return false;
-	}
+	inline bool		SurfZoomRenew(float zoom = -1, int dx = 0, int dy = 0);
 	// 【bHasBoth】根据已设定的缩放倍率值缩放，更新映射参数，返回surface是否刷新
-	inline bool SurfZoomRenew(POINT *client2cursor, bool stable = false, bool acce = false)
-	{
-		if (bHasBoth)
-		{
-			if (lastSurfZoom == surfZoom)
-				return false;
-
-			if (!client2cursor)//如果参数没提供基准点，就用basePoint作为基准点
-				client2cursor = &basePoint;
-
-			int oldzoomw = zoomW, oldzoomh = zoomH;
-			zoomW = (int)(surfZoom**pBmpW);
-			zoomH = (int)(surfZoom**pBmpH);
-			actualZoomX = (float)zoomW / *pBmpW;
-			actualZoomY = (float)zoomH / *pBmpH;
-
-			UINT oldswidth = (UINT)(*pBmpW*lastSurfZoom)
-				, oldsheight = (UINT)(*pBmpH*lastSurfZoom);
-
-			//调整起始点#1
-			if (stable)
-			{
-				surfBase.x = (LONG)(zoomW / 2) - oldzoomw / 2 + surfBase.x;
-				surfBase.y = (LONG)(zoomH / 2) - oldzoomh / 2 + surfBase.y;
-			}
-			else
-			{
-				POINT surf2cursor;
-				surf2cursor.x = surfBase.x + client2cursor->x;
-				surf2cursor.y = surfBase.y + client2cursor->y;
-
-				float tempf = (float)surf2cursor.x*surfZoom / lastSurfZoom;//平滑方式
-				if (tempf > 0)
-					surfBase.x = (LONG)(tempf + 0.5f) - client2cursor->x;
-				else
-					surfBase.x = (LONG)(tempf - 0.5f) - client2cursor->x;
-				tempf = (float)surf2cursor.y*surfZoom / lastSurfZoom;//平滑方式
-				if (tempf > 0)
-					surfBase.y = (LONG)(tempf + 0.5f) - client2cursor->y;
-				else
-					surfBase.y = (LONG)(tempf - 0.5f) - client2cursor->y;
-			}
-
-			//如果在放大阶段，窗口客户区可以完全容纳surface，则控制surface显示区域
-			//防止小图片放大迅速偏离窗口客户区
-			if (zoomW <= (int)*pBufferW
-				&& zoomH <= (int)*pBufferH
-				&& surfZoom > lastSurfZoom
-				&& surfZoom < ZOOM_MAXCONTROLED)
-			{
-				if (surfBase.x > 0)
-					surfBase.x = 0;
-				if (surfBase.y > 0)
-					surfBase.y = 0;
-				if (surfBase.x < (LONG)zoomW - (LONG)*pBufferW)
-					surfBase.x = (LONG)zoomW - (LONG)*pBufferW;
-				if (surfBase.y < (LONG)zoomH - (LONG)*pBufferH)
-					surfBase.y = (LONG)zoomH - (LONG)*pBufferH;
-			}
-
-			//更新bClip标志
-			//bClip = (zoomW > MIN_FORCECLIP_WIDTH || zoomH > MIN_FORCECLIP_HEIGHT);
-			SetClip(true);
-			PostSurfPosChange();
-
-			lastSurfZoom = surfZoom;
-
-			return SurfRenew(acce);
-		}
-		else
-			return false;
-	}
+	inline bool		SurfZoomRenew(POINT *client2cursor, bool stable = false, bool acce = false);
 
 //surface刷新
 	// 【bHasBoth】surface刷新，返回surface是否刷新
-	inline bool SurfRenew(bool acce = false)
-	{
-		bool bRenewed = false;
-		if (bHasBoth)
-		{
-			LARGE_INTEGER start, end;
-			QueryPerformanceCounter(&start);
+	inline bool		SurfRenew(bool acce = false);
 
-			//POINT oldSurfSize = surfSize;
-			//SETPOINT(surfSize, (LONG)zoomW, (LONG)zoomH);
-			POINT surfBias = { 0, 0 };	//实际surface起点（左上角）相对假想surface的位置（偏移用于定位图片区域来设置surface像素）
-			bSurfClipped = false;
-			if (bClip)
-			{
-				// 计算surfSize		：bClip后的surface尺寸,
-				// 计算surfBias		：bClip后的surface相对于假想surface的偏移
-				// 计算bSurfClipped	：实际surface是否clip
-				// surface左侧需clip
-				if (surfBase.x > 0)
-				{
-					//surfSize.x -= surfBase.x;
-					surfBias.x = surfBase.x;
-
-					bSurfClipped = true;
-				}
-				// surface上侧需clip
-				if (surfBase.y > 0)
-				{
-					//surfSize.y -= surfBase.y;
-					surfBias.y = surfBase.y;
-
-					bSurfClipped = true;
-				}
-				// surface右侧需clip
-				if ((LONG)zoomW - surfBase.x > (int)*pBufferW)
-				{
-					//surfSize.x -= zoomW - surfBase.x - (int)*pBufferW;
-
-					bSurfClipped = true;
-				}
-				// surface下侧需clip
-				if ((LONG)zoomH - surfBase.y > (int)*pBufferH)
-				{
-					//surfSize.y -= zoomH - surfBase.y - (int)*pBufferH;
-
-					bSurfClipped = true;
-				}
-			}
-
-
-			// 生成surface
-			if (!(bOutClient && bClip))//surface只在客户区外并clip时才不创建
-			{
-				// 计算surfDest
-				// 计算destBase
-				surfDest.x = surfBase.x > 0 ? 0 : -surfBase.x;
-				surfDest.y = surfBase.y > 0 ? 0 : -surfBase.y;
-
-				POINT destBase;//实际surface相对于目标buffer的位置（用于透明色块定位）
-				if (bClip)
-				{
-					destBase.x = surfDest.x;
-					destBase.y = surfDest.y;
-				}
-				else
-				{
-					destBase.x = -surfBase.x;
-					destBase.y = -surfBase.y;
-				}
-
-				// 如果surface和原来尺寸有变化，则重新创建
-				if (oldSurfSize.x != surfSize.x || oldSurfSize.y != surfSize.y || !surf)
-				{
-					// 清除原表面
-					SAFE_RELEASE(surf);
-					// 新建surface
-					if (FAILED(pDevice->CreateOffscreenPlainSurface(
-						surfSize.x, surfSize.y
-						, D3DFMT_A8R8G8B8
-						, D3DPOOL_SYSTEMMEM
-						, &surf
-						, NULL)))
-					{
-						bSurfFailed = true;
-						return false;//D3DPOOL_DEFAULT, D3DPOOL_SYSTEMMEM
-					}
-				}
-
-				// 锁定surface区域
-				D3DLOCKED_RECT lockedRect;
-				FAILED_RETURN_FALSE(surf->LockRect(&lockedRect, NULL, NULL));
-				DWORD *surfData = (DWORD*)lockedRect.pBits;
-
-				// 拷贝
-				if (acce)
-				{
-					if (surfZoom > NN_MIN)
-					{
-						pBmp->Copy_NN(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_NN;
-					}
-					else if (surfSize.x > MIN_NORMALRENEW_WIDTH || surfSize.y > MIN_NORMALRENEW_HEIGHT)
-					{
-						pBmp->Copy_Single(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_SINGLE;
-					}
-					else
-					{
-						pBmp->Copy_Single(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_SINGLE;
-					}
-				}
-				else
-				{
-					// 多种映射策略的选择
-					if (surfZoom > NN_MIN)
-					{
-						pBmp->Copy_NN(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_NN;
-					}
-					else if (surfZoom >= 1)
-					{
-						//小平滑马赛克
-						pBmp->Copy_Single(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_SINGLE;
-					}
-					else if (surfZoom > 0.5f
-						|| pBmp->width > MAXSAMPLE_WIDTH_UPPERLIMIT || pBmp->height > MAXSAMPLE_HEIGHT_UPPERLIMIT)
-					{
-						//双线性
-						pBmp->Copy_BiLinear(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_BILINEAR;
-					}
-					else
-					{
-						//最大重采样
-						pBmp->Copy_MaxSample(surfData, lockedRect.Pitch / 4, surfSize, surfZoom, 0, surfBias, destBase);
-						sampleSchema = SAMPLE_SCHEMA_MAX;
-					}
-				}
-				surf->UnlockRect();
-
-				bRenewed = true;//设置更新标志
-				oldSurfSize = surfSize;
-
-				bSurfFailed = false;
-
-				// bRenewed后续信息获取
-				SurfCalcMapInfo();//更新surface拷贝到backbuffer参数
-
-				QueryPerformanceCounter(&end);
-				renewTime = (float)(end.QuadPart - start.QuadPart) / freq.QuadPart;
-			}
-		}
-		
-		return bRenewed;
-	}
+	// 【surf】渲染
+	inline HRESULT	Render() const;
 
 //surface定制操作
 	// 【bHasBoth】自定义拖拽事件处理(根据bClip，surface位置等状态自动处理surface是否更新)，返回surface是否刷新
-	inline bool OnMove_Custom(POINT cursorbias)
-	{
-		if (bHasBoth)
-		{
-			bool oldPicClipped = bPicClipped;
-			bool oldOutClient = bOutClient;
-
-			SurfMovePR(cursorbias.x, cursorbias.y);
-
-			bool bRenewed = false;
-			if (bClip)
-			{
-				//移动时如果有bClip标志，并且图片小于一定尺寸，则取消bClip。
-				//如果先前surface被clip，就重新生成surface，增加拖动速度。
-				if (zoomW <= MAX_NOCLIP_WIDTH_DRAG && zoomH <= MAX_NOCLIP_HEIGHT_DRAG)
-				{
-					SetClip(false);
-					if (bSurfClipped)
-					{
-						SurfRenew(true);
-						bRenewed = true;
-					}
-				}
-				//如果图片始终全部在窗口客户区范围内（前后bSurfClipped状态都是0）
-				//或者始终在客户区外（前后bOutClient状态都是1），就不更新
-				else if ((oldPicClipped || bPicClipped)	&& (!oldOutClient || !bOutClient))
-				{
-					SurfRenew(true);
-					bRenewed = true;
-				}
-			}
-			//本次没更新surface，则更新surface映射信息，否则surface不动
-			if (!bRenewed)
-			{
-				SurfCalcMapInfo();//更新surface拷贝到backbuffer参数
-			}
-
-			return bRenewed;
-		}
-		else
-			return false;
-	}
+	inline bool		OnMove_Custom(POINT cursorbias);
 	// 【bHasBoth】自定义窗口拉伸事件处理(根据bClip，surface位置等状态自动处理surface是否更新)，返回surface是否刷新
-	inline bool OnWinsize_Custom()//和OnMove_Custom差不多
-	{
-		if (bHasBoth)
-		{
-			bool oldPicClipped = bPicClipped;
-			bool oldOutClient = bOutClient;
-
-			PostSurfPosChange();
-
-			bool bRenewed = false;
-			if (bClip)
-			{
-				//移动时如果有bClip标志，并且图片小于一定尺寸，则取消clip。
-				//如果先前surface被clip，就重新生成surface，增加拖动速度。
-				if (zoomW <= MAX_NOCLIP_WIDTH_DRAG && zoomH <= MAX_NOCLIP_HEIGHT_DRAG)
-				{
-					SetClip(false);
-					if (bSurfClipped)
-					{
-						SurfRenew(true);
-						bRenewed = true;
-					}
-				}
-				//如果图片始终全部在窗口客户区范围内（前后bSurfClipped状态都是0）
-				//或者始终在客户区外（前后bOutClient状态都是1），或者不设置bClip标志，就不更新
-				else if ((oldPicClipped || bPicClipped) && (!oldOutClient || !bOutClient))
-				{
-					SurfRenew(true);
-					bRenewed = true;
-				}
-			}
-			//本次没更新surface，则更新surface映射信息
-			if (!bRenewed)
-			{
-				SurfCalcMapInfo();//更新surface拷贝到backbuffer参数
-			}
-
-			return bRenewed;
-		}
-		else
-			return false;
-	}
-	// 【bHasBoth】
-	inline bool SurfSuit(int w, int h)
-	{
-		if (bHasBoth)
-		{
-			if (w < 1 || h < 1)
-				return false;
-
-			return SurfZoomRenew(min((float)w / *pBmpW, (float)h / *pBmpH), -surfBase.x, -surfBase.y);
-		}
-		else
-			return false;
-	}
-
-// 【surf】渲染
-	inline HRESULT Render() const
-	{
-		if (surf && !bOutClient)
-		{
-			// 图片存在且surface与窗口客户区有交集才渲染
-			// 获得backbuffer
-			LPDIRECT3DSURFACE9 backbuffer = NULL;
-			HRESULT hr = pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &backbuffer);
-			if (FAILED(hr))
-				return hr;
-			// 拷贝到backbuffer
-			hr = pDevice->UpdateSurface(surf, &rcSurf, backbuffer, &surfDest);//统一的拷贝
-			if (FAILED(hr))
-				return hr;
-
-			SAFE_RELEASE(backbuffer);
-
-			return S_OK;
-		}
-		else
-			return E_FAIL;
-	}
+	inline bool		OnWinsize_Custom();//和OnMove_Custom差不多
+	bool			SurfSuit(int w, int h);
 
 // 信息
+	//记录当前状态信息（更新字符串）
+	void			SetInfoStr();
+	//更新当前信息（当前鼠标位置对应图片的像素）和信息字符串
+	void			GetCurInfo(POINT *cursor, RECT *rcClient);
 	//获得信息字符串
 	inline const WCHAR *GetInfoStr() const
 	{
-		return surferInfoStr;
-	}
-	//记录当前状态信息（更新字符串）
-	inline void SetInfoStr()
-	{
-		WCHAR subinfo[256] = { 0 };
-		surferInfoStr[0] = L'\0';
-
-		// buffer尺寸、surface尺寸
-		// 缩放倍率
-		// surface起始点
-		swprintf_s(subinfo, L"SURFACE: %d × %d     TIME: %.3fms (%S)\n\
-		ZOOM: %.4f\n\
-		BASE: %d, %d\n"
-			, surfSize.x, surfSize.y, renewTime*1000.0f, GetSampleSchemaStr()
-			, surfZoom
-			, -surfBase.x, -surfBase.y);
-		wcscat_s(surferInfoStr, subinfo);
-
-		// 鼠标像素位置
-		if (pBmp)
-		{
-			if (pBmp->isNotEmpty())
-				swprintf_s(subinfo, L"PIXEL: %d, %d\n", cursorPixel.x, cursorPixel.y);
-			else
-				swprintf_s(subinfo, L"PIXEL:-, -\n");
-		}
-		else
-			swprintf_s(subinfo, L"PIXEL:-, -\n");
-		wcscat_s(surferInfoStr, subinfo);
-
-		// 鼠标像素颜色、屏幕像素颜色、背景色
-		COLOR_F3 hsvc = RGB2HSV_F3(cursorColor);
-		if (bCursorOnPic)
-			swprintf_s(subinfo, L"COLOR: #%02X.%06X.ARGB\n\
-			              %d, %d, %d, %d.ARGB\n\
-			              %.1f, %.2f, %.0f.HSV\n"
-				, (cursorColor >> 24), (cursorColor & 0xFFFFFF)
-				, (cursorColor >> 24), (cursorColor >> 16) & 0xFF, (cursorColor >> 8) & 0xFF, cursorColor & 0xFF
-				, hsvc.r, hsvc.g, hsvc.b);
-		else
-			swprintf_s(subinfo, L"COLOR: ??.??????.ARGB\n");
-		wcscat_s(surferInfoStr, subinfo);
-
-		// 附加信息
-		//"intended surface: %d× %d\n
-		//	clipsurface base: %d, %d\n
-		//	PZ: X %.4f Y %.4f\n"
-		//	, zoomW, zoomH
-		//	, surfDest.x, surfDest.y
-		//	, actualZoomX, actualZoomY
-
-	}
-	//更新当前信息（当前鼠标位置对应图片的像素）和信息字符串
-	inline void GetCurInfo(POINT *cursor, RECT *rcClient)
-	{
-		if (bHasPic)
-		{
-			if (!cursor || !rcClient)
-				return;
-
-			// 获得当前鼠标位置（种类）
-			POINT surf2cursor = { surfBase.x + cursor->x - rcClient->left
-				,surfBase.y + cursor->y - rcClient->top };
-			if (OUTSIDE(*cursor, *rcClient))
-				cursorPos = CURSORPOS_OUTWINDOW;
-			else if (!surf)
-				cursorPos = CURSORPOS_BLANK;
-			else if (OUTSIDE2(surf2cursor, zoomW - 1, zoomH - 1))
-				cursorPos = CURSORPOS_BLANK;
-			else
-				cursorPos = CURSORPOS_PIC;
-
-			// 所处像素
-			//如果除以actualzoom，和surface不一定匹配，因为surface按照realzoom生成，未计算actualzoom
-			cursorPixel.x = (LONG)((surf2cursor.x + 0.5f) / surfZoom);
-			cursorPixel.y = (LONG)((surf2cursor.y + 0.5f) / surfZoom);
-
-			// 获取所处像素颜色
-			if (cursorPos != CURSORPOS_PIC)//所处像素超出图片范围获鼠标超出窗口范围
-			{
-				cursorColor = 0;
-				bCursorOnPic = false;
-			}
-			else
-				bCursorOnPic = pBmp->GetPixel(cursorPixel.x, cursorPixel.y, &cursorColor);
-
-			// 更新信息字符串
-			SetInfoStr();
-		}
+		return strSurfInfo;
 	}
 	//获得上一次生成surface的采样算法
-	inline char *GetSampleSchemaStr()
+	char*			GetSampleSchemaStr();
+};
+
+inline bool Surfer::SurfZoomRenew(float zoom, int dx, int dy)
+{
+	if (bHasBoth)
 	{
-		switch (sampleSchema)
+		if (lastZoom == zoom && dx == 0 && dy == 0)
+			return false;
+		if (zoom < 0)
+			return false;
+
+		//#1调整起始点
+		SurfMovePR(dx, dy);
+
+		//#2调整zoom值
+		SurfSetZoomPR(zoom);
+
+		//更新标志、变量
+		SetClip(true);
+		lastZoom = zoom;
+
+		//#3更新surface
+		return SurfRenew(false);
+	}
+	else
+		return false;
+}
+
+inline bool Surfer::SurfZoomRenew(POINT * client2cursor, bool stable, bool acce)
+{
+	if (bHasBoth)
+	{
+		if (lastZoom == zoom)
+			return false;
+
+		//调整起始点#1
+		if (client2cursor == NULL)//如果参数没提供基准点，就用basePoint作为基准点
+			client2cursor = &basePoint;
+		int oldzoomw = (pBmp->width*lastZoom), oldzoomh = (pBmp->height*lastZoom);
+		if (stable)
 		{
-		case SAMPLE_SCHEMA_UNKNOWN:
-			return "unknown";
-			break;
-		case SAMPLE_SCHEMA_NN:
-			return "nn";
-			break;
-		case SAMPLE_SCHEMA_BILINEAR:
-			return "bi linear";
-			break;
-		case SAMPLE_SCHEMA_CUBE:
-			return "cube";
-			break;
-		case SAMPLE_SCHEMA_SINGLE:
-			return "single";
-			break;
-		case SAMPLE_SCHEMA_MAX:
-			return "max";
-			break;
-		default:
-			return "unknown";
-			break;
+			surfBase.x = surfBase.x - ((LONG)(zoomW / 2) - oldzoomw / 2);
+			surfBase.y = surfBase.y - ((LONG)(zoomH / 2) - oldzoomh / 2);
+		}
+		else
+		{
+			POINT surf2cursor;
+			surf2cursor.x = -surfBase.x + client2cursor->x;
+			surf2cursor.y = -surfBase.y + client2cursor->y;
+
+			float tempf = (float)surf2cursor.x*zoom / lastZoom;//平滑方式
+			if (tempf > 0)
+				surfBase.x = client2cursor->x - (LONG)(tempf + 0.5f);
+			else
+				surfBase.x = client2cursor->x - (LONG)(tempf - 0.5f);
+			tempf = (float)surf2cursor.y*zoom / lastZoom;//平滑方式
+			if (tempf > 0)
+				surfBase.y = client2cursor->y - (LONG)(tempf + 0.5f);
+			else
+				surfBase.y = client2cursor->y - (LONG)(tempf - 0.5f);
+		}
+
+		//如果在放大阶段，窗口客户区可以完全容纳surface，则控制surface显示区域
+		//防止小图片放大迅速偏离窗口客户区
+		if (zoomW <= (int)*pBufferW
+			&& zoomH <= (int)*pBufferH
+			&& zoom > lastZoom
+			&& zoom < ZOOM_MAXCONTROLED)
+		{
+			if (surfBase.x < 0)
+				surfBase.x = 0;
+			if (surfBase.y < 0)
+				surfBase.y = 0;
+			if (surfBase.x + (LONG)zoomW >(LONG)*pBufferW)
+				surfBase.x = (LONG)*pBufferW - (LONG)zoomW;
+			if (surfBase.y + (LONG)zoomH >(LONG)*pBufferH)
+				surfBase.y = (LONG)*pBufferH - (LONG)zoomH;
+		}
+
+		//#2更新标志、变量
+		//bClip = (zoomW > MIN_FORCECLIP_WIDTH || zoomH > MIN_FORCECLIP_HEIGHT);
+		SetClip(true);
+		PostSurfPosChange();
+		lastZoom = zoom;
+
+		//#3更新surface
+		return SurfRenew(acce);
+	}
+	else
+		return false;
+}
+
+inline bool Surfer::SurfRenew(bool acce)
+{
+	bool bRenewed = false;
+	if (bHasBoth)
+	{
+		LARGE_INTEGER start, end;
+		QueryPerformanceCounter(&start);
+
+		POINT surfBias = { 0, 0 };	//实际surface起点（左上角）相对假想surface的位置（偏移用于定位图片区域来设置surface像素）
+		bSurfClipped = false;
+		if (bClip)
+		{
+			// 计算surfBias		：bClip后的surface相对于假想surface的偏移
+			// 计算bSurfClipped	：实际surface是否clip
+			// surface左侧需clip
+			if (surfBase.x < 0)
+			{
+				surfBias.x = -surfBase.x;
+
+				bSurfClipped = true;
+			}
+			// surface上侧需clip
+			if (surfBase.y < 0)
+			{
+				surfBias.y = -surfBase.y;
+
+				bSurfClipped = true;
+			}
+			// surface右侧需clip
+			if (surfBase.x + (LONG)zoomW >(int)*pBufferW)
+			{
+				bSurfClipped = true;
+			}
+			// surface下侧需clip
+			if (surfBase.y + (LONG)zoomH > (int)*pBufferH)
+			{
+				bSurfClipped = true;
+			}
+		}
+
+
+		// 生成surface
+		if (!(bOutClient && bClip))//surface只在客户区外并clip时才不创建
+		{
+			POINT destBase;//实际surface相对于目标buffer的位置（用于透明色块定位）
+			if (bClip)
+			{
+				destBase.x = surfBase.x < 0 ? 0 : surfBase.x;
+				destBase.y = surfBase.y < 0 ? 0 : surfBase.y;
+			}
+			else
+			{
+				destBase.x = surfBase.x;
+				destBase.y = surfBase.y;
+			}
+
+			// 如果surface和原来尺寸有变化，则重新创建
+			if (oldSurfSize.x != surfSize.x || oldSurfSize.y != surfSize.y || !surf)
+			{
+				// 清除原表面
+				SAFE_RELEASE(surf);
+				// 新建surface
+				if (FAILED(pDevice->CreateOffscreenPlainSurface(
+					surfSize.x, surfSize.y
+					, D3DFMT_A8R8G8B8
+					, D3DPOOL_SYSTEMMEM
+					, &surf
+					, NULL)))
+				{
+					bSurfFailed = true;
+					return false;//D3DPOOL_DEFAULT, D3DPOOL_SYSTEMMEM
+				}
+			}
+
+			// 锁定surface区域
+			D3DLOCKED_RECT lockedRect;
+			FAILED_RETURN_FALSE(surf->LockRect(&lockedRect, NULL, NULL));
+			DWORD *surfData = (DWORD*)lockedRect.pBits;
+
+			// 采样
+			if (acce)
+			{
+				if (zoom > NN_MIN || surfSize.x > MIN_NORMALRENEW_WIDTH || surfSize.y > MIN_NORMALRENEW_HEIGHT)
+				{
+					pBmp->Sample_NN(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_NN;
+				}
+				else
+				{
+					pBmp->Sample_Single(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_SINGLE;
+				}
+			}
+			else
+			{
+				// 多种映射策略的选择
+				if (zoom > NN_MIN)
+				{
+					pBmp->Sample_NN(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_NN;
+				}
+				else if (zoom >= 1)
+				{
+					//小平滑马赛克
+					pBmp->Sample_Single(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_SINGLE;
+				}
+				else if (zoom > 0.5f
+					|| pBmp->width > MAXSAMPLE_WIDTH_UPPERLIMIT || pBmp->height > MAXSAMPLE_HEIGHT_UPPERLIMIT)
+				{
+					//双线性
+					pBmp->Sample_BiLinear(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_BILINEAR;
+				}
+				else
+				{
+					//最大重采样
+					pBmp->Sample_Area(surfData, lockedRect.Pitch / 4, surfSize, zoom, 0, surfBias, destBase);
+					sampleSchema = SAMPLE_SCHEMA_MAX;
+				}
+			}
+			surf->UnlockRect();
+
+			bRenewed = true;//设置更新标志
+			bSurfFailed = false;
+			oldSurfSize = surfSize;
+
+			// bRenewed后续信息获取
+			CalcMapInfo();//更新surface拷贝到backbuffer参数
+
+			QueryPerformanceCounter(&end);
+			renewTime = (float)(end.QuadPart - start.QuadPart) / freq.QuadPart;
 		}
 	}
-};
+
+	if (bRenewed)
+		bNeedRenew = false;
+
+	return bRenewed;
+}
+
+inline HRESULT Surfer::Render() const
+{
+	if (surf && !bOutClient && bHasDevice)
+	{
+		// 图片存在且surface与窗口客户区有交集才渲染
+		// 获得backbuffer
+		LPDIRECT3DSURFACE9 backbuffer = NULL;
+		HRESULT hr = pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &backbuffer);
+		if (FAILED(hr))
+			return hr;
+		// 拷贝到backbuffer
+		hr = pDevice->UpdateSurface(surf, &rcSurf, backbuffer, &surfDest);//统一的拷贝
+		if (FAILED(hr))
+			return hr;
+
+		SAFE_RELEASE(backbuffer);
+
+		return S_OK;
+	}
+	else
+		return E_FAIL;
+}
+
+inline bool Surfer::OnMove_Custom(POINT cursorbias)
+{
+	if (bHasBoth)
+	{
+		bool oldPicClipped = bPicClipped;
+		bool oldOutClient = bOutClient;
+
+		SurfMovePR(cursorbias.x, cursorbias.y);
+
+		bool bRenewed = false;
+		if (bClip)
+		{
+			//移动时如果有bClip标志，并且图片小于一定尺寸，则取消clip。
+			//如果先前surface被clip，就重新生成surface，增加拖动速度。
+			if (zoomW <= MAX_NOCLIP_WIDTH_DRAG && zoomH <= MAX_NOCLIP_HEIGHT_DRAG)
+			{
+				SetClip(false);
+				if (bSurfClipped)
+				{
+					SurfRenew(false);//取消clip后直接生成最终surface
+					bRenewed = true;
+				}
+			}
+			//如果图片始终全部在窗口客户区范围内（前后bSurfClipped状态都是0）
+			//或者始终在客户区外（前后bOutClient状态都是1），就不更新
+			else if ((oldPicClipped || bPicClipped) && (!oldOutClient || !bOutClient))
+			{
+				SurfRenew(true);
+				bRenewed = true;
+			}
+		}
+		//本次没更新surface，则更新surface映射信息，否则surface不动
+		if (!bRenewed)
+		{
+			CalcMapInfo();//更新surface拷贝到backbuffer参数
+		}
+
+		return bRenewed;
+	}
+	else
+		return false;
+}
+
+inline bool Surfer::OnWinsize_Custom()
+{
+	if (bHasBoth)
+	{
+		bool oldPicClipped = bPicClipped;
+		bool oldOutClient = bOutClient;
+
+		PostSurfPosChange();
+
+		bool bRenewed = false;
+		if (bClip)
+		{
+			//移动时如果有bClip标志，并且图片小于一定尺寸，则取消clip。
+			//如果先前surface被clip，就重新生成surface，增加拖动速度。
+			if (zoomW <= MAX_NOCLIP_WIDTH_DRAG && zoomH <= MAX_NOCLIP_HEIGHT_DRAG)
+			{
+				SetClip(false);
+				if (bSurfClipped)
+				{
+					SurfRenew(false);
+					bRenewed = true;
+				}
+			}
+			//如果图片始终全部在窗口客户区范围内（前后bSurfClipped状态都是0）
+			//或者始终在客户区外（前后bOutClient状态都是1），或者不设置bClip标志，就不更新
+			else if ((oldPicClipped || bPicClipped) && (!oldOutClient || !bOutClient))
+			{
+				SurfRenew(true);
+				bRenewed = true;
+			}
+		}
+		//本次没更新surface，则更新surface映射信息
+		if (!bRenewed)
+		{
+			CalcMapInfo();//更新surface拷贝到backbuffer参数
+		}
+
+		return bRenewed;
+	}
+	else
+		return false;
+}

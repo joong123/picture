@@ -17,7 +17,7 @@ using std::setprecision;
 #define R2D_F(R)					((R) * 180.0f / PI_F)
 #define XNOR(B1, B2)				!((B1) ^ (B2))
 
-#define GDIRECT(L, T, W, H)			{(LONG)(L - 1), (LONG)(T - 1), (LONG)(L + W), (LONG)(T + H)}
+#define SQ(N)						((N)*(N))
 
 #define ROUND(f)					(int)(f + 0.5f)
 #define ROUND_BYTE(f)				(byte)(f + 0.5f)

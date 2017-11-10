@@ -1,20 +1,23 @@
 #pragma once
 
+#include<windows.h>
+#include<strsafe.h>
+
+bool TimeString(WCHAR *dest, size_t size, double msec);
+
 //--------------------------------------------------------------------------------------
 // A growable array
 //--------------------------------------------------------------------------------------
-
-#include<windows.h>
-
 template<typename TYPE> class CGrowableArray
 {
 public:
 	CGrowableArray()
 	{
-		m_pData = NULL; m_nSize = 0; m_nMaxSize = 0;
+		m_pData = NULL; m_nSize = 0; m_nMaxSize = 0; m_nCursor = 0;
 	}
 	CGrowableArray(const CGrowableArray <TYPE>& a)
 	{
+		//m_pData = NULL; m_nSize = 0; m_nMaxSize = 0; m_nCursor = 0;//TODO：不需要变量初始化？
 		for (int i = 0; i < a.m_nSize; i++) Add(a.m_pData[i]);
 	}
 	~CGrowableArray()
@@ -86,32 +89,28 @@ public:
 
 		return S_OK;
 	}
-	HRESULT Add_ext(const TYPE& value, UINT ext)
-	{
-		HRESULT hr;
-		if (FAILED(hr = SetSizeInternal(m_nSize + ext)))
-			return hr;
-
-		// Construct the new element
-		::new (&m_pData[m_nSize]) TYPE;
-
-		// Assign
-		m_pData[m_nSize] = value;
-		++m_nSize;
-
-		return S_OK;
-	}
 	HRESULT Insert(int nIndex, const TYPE& value);
 	HRESULT SetAt(int nIndex, const TYPE& value);
 	TYPE& GetAt(int nIndex) const
 	{
 		/*assert(nIndex >= 0 && nIndex < m_nSize);*/ return m_pData[nIndex];
 	}
+	TYPE GetAtSafe(int nIndex) const
+	{
+		/*assert(nIndex >= 0 && nIndex < m_nSize);*/ return m_pData[nIndex];
+	}
+	TYPE* GetPAt(int nIndex) const//自己加的
+	{
+		if (nIndex < 0 || nIndex >= m_nSize)
+			return NULL;
+		else
+			return (TYPE*)&(m_pData[nIndex]);
+	}
 	int     GetSize() const
 	{
 		return m_nSize;
 	}
-	int		GetCapacity() const
+	int		GetCapacity() const//自己加的
 	{
 		return m_nMaxSize;
 	}
@@ -160,6 +159,9 @@ public:
 		MoveMemory(&m_pData[nIndex], &m_pData[nIndex + 1], sizeof(TYPE) * (m_nSize - (nIndex + 1)));
 		--m_nSize;
 
+		if (m_nCursor >= m_nSize)//自己加的
+			m_nCursor = m_nSize;
+
 		return S_OK;
 	}
 	void    RemoveAll()
@@ -171,10 +173,34 @@ public:
 		m_nSize = 0;
 	}
 
+	int		SetCursor(int cursor)
+	{
+		if (cursor >= 0 && cursor < m_nSize)
+			m_nCursor = cursor;
+		return m_nCursor;
+	}
+	int		SetCursorNext()
+	{
+		m_nCursor++;
+		if (m_nCursor >= m_nSize)
+			m_nCursor = 0;
+	}
+	int		SetCursorPrev()
+	{
+		m_nCursor--;
+		if (m_nCursor < 0)
+			m_nCursor = max(m_nSize - 1, 0);
+	}
+	int		SetCursorTail()
+	{
+		m_nCursor = max(m_nSize - 1, 0);
+	}
+
 protected:
 	TYPE* m_pData;      // the actual array of samples
 	int m_nSize;        // # of elements (upperBound - 1)
 	int m_nMaxSize;     // max allocated
+	int m_nCursor;		// 游标[自己添加的]
 
 	HRESULT SetSizeInternal(int nNewMaxSize)  // This version doesn't call ctor or dtor.
 	{
@@ -195,6 +221,7 @@ protected:
 
 			m_nMaxSize = 0;
 			m_nSize = 0;
+			m_nCursor = 0; //自己加的
 		}
 		else if (m_pData == NULL || nNewMaxSize > m_nMaxSize)
 		{

@@ -308,9 +308,13 @@ LRESULT CALLBACK StartWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 }
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UINT uFileNum;
+
+	if (!(message == WM_MOUSEMOVE && (bOnDrag || bOnDragzoom)))
+		g_gui->MsgProc(hWnd, message, wParam, lParam);
 
     switch (message)
     {
@@ -403,11 +407,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				g_gui->HandleMouse(bLMBDown, cursor.x - rcClient.left, cursor.y - rcClient.top);
+				//g_gui->HandleMouse(message, cursor, wParam, lParam);
 			}
 		}
 		else
-			g_gui->HandleMouse(bLMBDown, cursor.x - rcClient.left, cursor.y - rcClient.top);
+			;
+			//g_gui->HandleMouse(message, cursor, wParam, lParam);
 		// 获取信息
 		surfer.GetCurInfo(&cursor, &rcClient);
 		//pD3DWnd->ChangeVBColor_tail(&colorblock
@@ -425,9 +430,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			base.x = cursor.x - rcClient.left;
 			base.y = cursor.y - rcClient.top;
 			surfer.SurfAdjustZoom_WheelPR((short)HIWORD(wParam));
-			bSurfRenew = surfer.SurfZoomRenew(&base, ISALTDOWN, !ISKEYDOWN('V'));
-
-			bNeedForceRenew = true;
+			SF_SRFR(surfer.SurfZoomRenew(&base, ISALTDOWN, !ISKEYDOWN('V')));
 
 			// 获取信息
 			surfer.GetCurInfo(&cursor, &rcClient);
@@ -436,8 +439,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			//	, sizeof(FVF2));
 
 			// 标志
-			if(bSurfRenew)
-				surfRenewTick = GetTickCount();
 			bOnZoom = true;
 			zoomTick = GetTickCount();
 		}
@@ -456,12 +457,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ResetDevice();
 
 			// surface更新
-			bSurfRenew = surfer.OnWinsize_Custom();
-			bNeedForceRenew |= bSurfRenew;
+			SF_SRFR(surfer.OnWinsize_Custom());
 
 			// 标志
-			if (bSurfRenew)
-				surfRenewTick = GetTickCount();
 			bOnSize = true;
 			sizeTick = GetTickCount();
 		}
@@ -493,20 +491,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DefWindowProc(hWnd, message, wParam, lParam);
 		break;
 	//	WM_LBUTTONDBLCLK	- 鼠标左键双击
-	case WM_LBUTTONDBLCLK:
-		if (bWindowedFullscreen)
-		{
-			FullScreen_Windowed(!bWindowedFullscreen);
-		}
-		else
-		{
-			PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-		}
-		break;
+	//case WM_LBUTTONDBLCLK:
+	//	if (bWindowedFullscreen)
+	//	{
+	//		FullScreen_Windowed(!bWindowedFullscreen);
+	//	}
+	//	else
+	//	{
+	//		PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTCAPTION, 0);//双击移动窗口
+	//	}
+	//	break;
 	//	WM_LBUTTONDOWN	- 鼠标左键按下
-	case WM_LBUTTONDOWN:
-		bLMBDown = true;
-		
+	case WM_LBUTTONDOWN:		
 		//自定义客户区内拉伸窗口
 		if (ISCONTROLDOWN)
 		{
@@ -532,13 +528,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 
-		g_gui->HandleMouse(bLMBDown, cursor.x - rcClient.left, cursor.y - rcClient.top);
+		//g_gui->HandleMouse(message, cursor, wParam, lParam);
 
 		break;
 	//	WM_LBUTTONUP	- 鼠标左键抬起
 	case WM_LBUTTONUP:
-		//ResetDevice();
-		bLMBDown = false;
 		
 		if (bOnDrag)
 		{
@@ -546,7 +540,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		ReleaseCapture();
-		g_gui->HandleMouse(bLMBDown, cursor.x - rcClient.left, cursor.y - rcClient.top);
+		//g_gui->HandleMouse(message, cursor, wParam, lParam);
 
 		break;
 	//	WM_RBUTTONDOWN	- 鼠标右键按下
@@ -578,7 +572,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//	WM_KEYDOWN	- 键盘按键
 	case WM_KEYDOWN:
 		KeyDownProc(wParam);
-		g_gui->HandleKeyboard(GUI_KEYEVENT_KEYDOWN, wParam);
+		//g_gui->HandleKeyboard(message, wParam, lParam);
 		break;
 	//	WM_RESETDEVICE	- 处理设备丢失
 	case WM_RESETDEVICE:
@@ -635,7 +629,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	//	WM_IME_CHAR	- 输入法输入
 	case WM_IME_CHAR:
-		g_gui->HandleKeyboard(GUI_KEYEVENT_IMECHAR, wParam);
+		g_gui->HandleKeyboard(message, wParam, lParam);
 		break;
 	//	WM_DROPFILES	- 处理拖入文件
 	case WM_DROPFILES:
@@ -780,16 +774,12 @@ void MYCALL1 OnWinChange()
 inline void MYCALL1 RefreshTextRect()
 {
 	// 状态信息显示区域
-	rcFlag.left = TEXTMARGIN_SIDE;
-	rcFlag.top = HEIGHTOF(rcClient) - TEXTMARGIN_BOTTOM - 16;
-	rcFlag.right = rcFlag.left + 600;
-	rcFlag.bottom = rcFlag.top + 16;
+	SetRect(&rcFlag, TEXTMARGIN_SIDE, HEIGHTOF(rcClient) - TEXTMARGIN_BOTTOM - 16
+		, TEXTMARGIN_SIDE + 600, HEIGHTOF(rcClient) - TEXTMARGIN_BOTTOM);
 
 	// 图片状态显示区域
-	rcPicState.right = WIDTHOF(rcClient) - 10;
-	rcPicState.top = TEXTMARGIN_TOP;
-	rcPicState.left = rcPicState.right - 100;
-	rcPicState.bottom = rcPicState.top + 60;
+	SetRect(&rcPicState, WIDTHOF(rcClient) - 100, TEXTMARGIN_TOP
+		, WIDTHOF(rcClient) - 10, TEXTMARGIN_TOP + 60);
 }
 
 bool MYCALL1 Init()
@@ -867,7 +857,6 @@ bool MYCALL1 D3DInit()
 	// SURFER
 	surfer.BindDevice(mainDevice);
 	surfer.BindBuf(pBufferW, pBufferH);
-	surfer.SetBackcolor(BackgroundColor);
 
 	// FONT
 	pD3DWnd->DXCreateFont(&pFontPic, L"Arial Rounded MT Bold"
@@ -1032,10 +1021,6 @@ inline void MYCALL1 DelayFlag()
 void MYCALL1 ClearFlag()
 {
 	ReleaseCapture();//统一释放
-	if (bLMBDown)
-	{
-		bLMBDown = false;
-	}
 	if (bOnDrag)
 	{
 		bOnDrag = false;
@@ -1089,9 +1074,12 @@ bool SetNewPic()
 
 	// 居中
 	surfer.SurfCenterPR(*pBufferW, *pBufferH);
-	bSurfRenew = surfer.SurfRenew(false);
+	bSurfRenew = surfer.SurfRenew(true);
 	if (bSurfRenew)
 		surfRenewTick = GetTickCount();
+	bNeedForceRenew |= bSurfRenew; 
+	if (bNeedForceRenew)//如果拖动过程中需要更新图片，在结束时用合适方法重新生成surface
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
 
 	SetPicInfo();
 	bPicOn = HasPic();
@@ -1162,13 +1150,21 @@ void Drop()
 
 void SetSurface(PicPack *newpicpack, PicPack *oldpicpack, bool renew)
 {
-	if (oldpicpack)
-		surfer.DeBindPic(oldpicpack);// 解绑
-	surfer.BindPic(newpicpack, renew);// 捆绑
+	if (newpicpack != oldpicpack || newpicpack == NULL)
+	{
+		if (oldpicpack)
+			surfer.DeBindPic(oldpicpack);// 解绑
+		surfer.BindPic(newpicpack, renew);// 捆绑
 
-	//标志
-	bSurfRenew = true;//TODO强制设置为已更新？
-	surfRenewTick = GetTickCount();
+		//标志
+		bSurfRenew = true;//TODO强制设置为已更新？
+		surfRenewTick = GetTickCount();
+
+		bNeedForceRenew = true;
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+
+		Render();
+	}
 }
 
 void SetPicInfo()
@@ -1208,7 +1204,10 @@ void PicRestore()
 
 void PicClipWindow()
 {
-	SF_SRFR(surfer.OnMove_Custom(surfer.GetBase()));
+	POINT surfBase = surfer.GetBase();
+	surfBase.x = -surfBase.x;
+	surfBase.y = -surfBase.y;
+	SF_SRFR(surfer.OnMove_Custom(surfBase));
 
 	rcWnd.right = rcWnd.left + surfer.GetZoomWidth() + WinDiffW;
 	rcWnd.bottom = rcWnd.top + surfer.GetZoomHeight() + WinDiffH;
@@ -1777,7 +1776,7 @@ void ToggleNight()
 
 inline void MYCALL1 SetRenderState()
 {
-	// 标配：D3DBLEND_SRCALPHA, D3DBLEND_INVSRCALPHA
+	// 标准blend：D3DBLEND_SRCALPHA, D3DBLEND_INVSRCALPHA
 	mainDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 	mainDevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 	mainDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
@@ -1792,16 +1791,15 @@ inline void MYCALL1 SetRenderState()
 
 	mainDevice->SetRenderState(D3DRS_LIGHTING, TRUE); 
 	mainDevice->SetRenderState(D3DRS_SPECULARENABLE, TRUE);
-	mainDevice->SetRenderState(D3DRS_LIGHTING, TRUE);
 	//mainDevice->SetRenderState(D3DRS_AMBIENT,
 	//	D3DCOLOR_COLORVALUE(0.3f, 0.3f, 0.3f, 1.0f));
 
-	mainDevice->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);//不需要
+	mainDevice->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);//默认D3DMCS_COLOR1
 	mainDevice->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
 
 	mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 	//mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
-	mainDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+	mainDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//D3DCULL_NONE,D3DCULL_CCW
 }
 
 inline void SetView()
@@ -1871,13 +1869,15 @@ bool InfoRender()
 		MEM: %.1fMB,  %.1fMB\n\
 		BUF: %d × %d\n\
 		CLIENT: %d, %d\n\
-		PROC: %.3fms\n"
+		PROC: %.3fms\n\
+		MULTISAMPLE: %d\n"
 		, mode
 		, fps, avgFps, cvgFps, frameTime, nLoops
 		, memoryIn, memoryOut
 		, *pBufferW, *pBufferH
 		, cursor.x - rcClient.left, cursor.y - rcClient.top
-		, procTime);
+		, procTime
+		, pD3DWnd->GetMultiSample());
 	wcscat_s(infowstr, L"   -    -    -    -   \n");
 	wcscat_s(infowstr, surfer.GetInfoStr());
 	pFontPic->DrawTextW(NULL, infowstr, -1, &rcSurface, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
@@ -1938,10 +1938,10 @@ void MYCALL1 Render()
 		mainDevice->SetMaterial(&material);
 		mainDevice->SetTexture(NULL, NULL);
 		mainDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
-		mainDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+		mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+		mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 		decorate->DrawSubset(0);
 	}
-	mainDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 	mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
 
 	// 图片绘制
@@ -1974,7 +1974,7 @@ void MYCALL1 Render()
 	{
 		if (mainDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
 		{
-			PostMessage(hWndMain, WM_RESETDEVICE, 0, 0);
+			ResetDevice();
 		}
 	}
 }
@@ -2051,19 +2051,19 @@ void CALLBACK GUICallback(int ID, WPARAM wp, LPARAM lp)
 	switch (ID)
 	{
 	case BUTTON_ID_1:
-		if (wp == GUI_EVENT_UP)
+		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_COMMAND, IDM_OPEN, 0);
 		}
 		break;
 	case BUTTON_ID_2:
-		if (wp == GUI_EVENT_UP)
+		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_COMMAND, IDM_SAVE, 0);
 		}
 		break;
 	case BUTTON_ID_3:
-		if (wp == GUI_EVENT_UP)
+		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_TOGGLEFULLSCREEN, 0, 1);
 		}

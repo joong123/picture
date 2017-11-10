@@ -113,10 +113,10 @@ bool PicInfo::ReadFile(WCHAR file[])
 
 			byte f, r;
 			in >> f;
-			if (f == 0xFF)//ËÑË÷0xFFC0
+			if (f == 0xFF)//ËÑË÷0xFFCX
 			{
 				in >> r;
-				if (r == 0xC0 || r == 0xC2)
+				if (r == 0xC0 || r==0xC1 || r == 0xC2)
 					FFC0pos = in.tellg();
 				else if (r == 0xFF)
 					in.seekg(-1, ios::cur);

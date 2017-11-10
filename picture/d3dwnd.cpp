@@ -111,7 +111,7 @@ inline void D3DWnd::Get2WndRect()
 	GetWindowRect(hWnd, &windowrect);//得到窗口区域
 }
 
-bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
+bool D3DWnd::CreateDevice(D3DFORMAT textFormat, UINT backbuffercount)
 {
 	if (!hWnd)
 		return false;
@@ -139,7 +139,7 @@ bool D3DWnd::CreateDevice(D3DFORMAT format, UINT backbuffercount)
 	ZeroMemory(&d3dpp, sizeof(d3dpp));
 	d3dpp.BackBufferWidth = WIDTHOF(rcClient);
 	d3dpp.BackBufferHeight = HEIGHTOF(rcClient);
-	d3dpp.BackBufferFormat = format;//加速，displaymode.Format
+	d3dpp.BackBufferFormat = textFormat;//加速，displaymode.Format
 	d3dpp.BackBufferCount = backbuffercount;
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	d3dpp.hDeviceWindow = hWnd;
@@ -348,7 +348,7 @@ bool D3DWnd::CreateMesh_Custom1(LPD3DXMESH * ppmesh)
 		device,
 		ppmesh));
 
-	byte alpha = 0x60;
+	byte alpha = 0xD0;
 	// 颜色
 	D3DCOLOR COLOR1 = D3DCOLOR_ARGB(alpha, 0xFF, 0x30, 0x30);	//红
 	D3DCOLOR COLOR2 = D3DCOLOR_ARGB(alpha, 0xF9, 0xBB, 0x42);	//黄
@@ -693,7 +693,7 @@ void D3DWnd::ChangeMultiSample()
 			d3dpp.MultiSampleType = mst = newmst;
 			break;
 		}
-		mst = (D3DMULTISAMPLE_TYPE)(mst + 1 > D3DMULTISAMPLE_16_SAMPLES ? D3DMULTISAMPLE_NONE : mst + 1);
+		newmst = (D3DMULTISAMPLE_TYPE)(newmst + 1 > D3DMULTISAMPLE_16_SAMPLES ? D3DMULTISAMPLE_NONE : newmst + 1);
 	}
 }
 

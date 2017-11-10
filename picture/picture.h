@@ -156,10 +156,10 @@ bool bColorblockOn;						// 显示当前颜色块
 bool bScreenColorOn;					// 是否获取屏幕颜色
 
 // 状态标志
-bool bLMBDown;							// 鼠标左键是否按下
 bool bPureWnd;							// 是否是纯窗口状态（无标题栏）
 bool bWindowedFullscreen;				// 是否在伪全屏状态
 bool bIconic;							// 是否在最小化
+
 bool bOnZoom;							// 是否在放大（确定帧率）
 bool bOnSize;							// 是否在缩放窗口
 bool bOnDrag;							// 是否开始了拖动图片状态

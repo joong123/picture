@@ -293,6 +293,9 @@ bool memPic::Read(WCHAR * filename)
 	if (!info.ReadFile(filename))
 		return false;
 
+	if (!m_Image.IsNull())//如果已有图片，先detach
+		m_Image.Detach();
+
 	if (!SUCCEEDED(m_Image.Load(filename)))
 		return false;
 
