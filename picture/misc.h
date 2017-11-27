@@ -3,6 +3,18 @@
 #include<windows.h>
 #include<strsafe.h>
 
+typedef struct
+{
+	HWND hWnd;
+	DWORD dwPid;
+}WNDINFO, *LPWNDINFO;
+
+BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam);
+
+HWND GetHwndByProcessId(DWORD dwProcessId);
+
+HWND GetHwndByPid(DWORD dwProcessID);
+
 bool TimeString(WCHAR *dest, size_t size, double msec);
 
 //--------------------------------------------------------------------------------------

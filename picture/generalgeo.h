@@ -11,6 +11,8 @@ using std::setw;
 using std::setprecision;
 
 //GENERAL
+#define DBL_INF						(1 / 0.0L)
+
 #define PI_F						3.14159265f
 #define PI							3.1415926535897932
 #define R2D(R)						((R) * 180.0 / PI)
@@ -19,8 +21,10 @@ using std::setprecision;
 
 #define SQ(N)						((N)*(N))
 
-#define ROUND(f)					(int)(f + 0.5f)
-#define ROUND_BYTE(f)				(byte)(f + 0.5f)
+#define ROUND(f)					(int)(f + 0.5)
+#define ROUNDF(f)					(int)(f + 0.5f)
+#define ROUND_LONGLONG(f)			(LONGLONG)(f + 0.5)
+#define ROUNDF_BYTE(f)				(byte)(f + 0.5f)
 
 #define MAKE_RANDOM(SEED, LL, UL)	((LL) == (UL)? LL : ((LL) > (UL)? MAKE_RANDOM_STRICT(SEED, UL, LL) : MAKE_RANDOM_STRICT(SEED, LL, UL)))	
 #define MAKE_RANDOM_STRICT(SEED, LL, UL)	(((SEED) % (UL - LL + 1)) - (UL - LL)/2)
@@ -634,9 +638,9 @@ inline VECTORi3 *Vec3Proj2Plane(VECTORi3 *pOut, const VECTORi3 *pV1, const VECTO
 	{
 		FLOAT f = PVEC3_PROJLEN(pV1, pV2) / PVEC3_LEN(pV2);
 
-		pOut->x = ROUND(pV1->x - pV2->x * f);
-		pOut->y = ROUND(pV1->y - pV2->y * f);
-		pOut->z = ROUND(pV1->z - pV2->z * f);
+		pOut->x = ROUNDF(pV1->x - pV2->x * f);
+		pOut->y = ROUNDF(pV1->y - pV2->y * f);
+		pOut->z = ROUNDF(pV1->z - pV2->z * f);
 	}
 
 	return pOut;
@@ -649,9 +653,9 @@ inline VECTORi3 *Vec3Reflect(VECTORi3 *pOut, const VECTORi3 *pVIN, const VECTORi
 	if (PVEC3_LEN(pVNOR) != 0)
 	{
 		float normaladjust = 2 * PVEC3_PROJLEN(pVIN, pVNOR) / PVEC3_LEN(pVNOR);
-		pOut->x = ROUND(pVNOR->x*normaladjust - pVIN->x);
-		pOut->y = ROUND(pVNOR->y*normaladjust - pVIN->y);
-		pOut->z = ROUND(pVNOR->z*normaladjust - pVIN->z);
+		pOut->x = ROUNDF(pVNOR->x*normaladjust - pVIN->x);
+		pOut->y = ROUNDF(pVNOR->y*normaladjust - pVIN->y);
+		pOut->z = ROUNDF(pVNOR->z*normaladjust - pVIN->z);
 	}
 
 	return pOut;
@@ -668,9 +672,9 @@ inline VECTORi3 *Vec3RotateAxis(VECTORi3 *pOut, const VECTORi3 *pV1, const VECTO
 	+ cross*sin(angle)
 	+ *pAxis*Vec3Dot(pAxis, pV1)*(1 - cos(angle));*/
 	float para3 = Vec3Dot(pAxis, pV1)*(1 - cos(angle));
-	pOut->x = ROUND(pV1->x*cosf(angle) + cross.x*sinf(angle) + pAxis->x*para3);
-	pOut->y = ROUND(pV1->y*cosf(angle) + cross.y*sinf(angle) + pAxis->y*para3);
-	pOut->z = ROUND(pV1->z*cosf(angle) + cross.z*sinf(angle) + pAxis->z*para3);
+	pOut->x = ROUNDF(pV1->x*cosf(angle) + cross.x*sinf(angle) + pAxis->x*para3);
+	pOut->y = ROUNDF(pV1->y*cosf(angle) + cross.y*sinf(angle) + pAxis->y*para3);
+	pOut->z = ROUNDF(pV1->z*cosf(angle) + cross.z*sinf(angle) + pAxis->z*para3);
 
 	return pOut;
 

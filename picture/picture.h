@@ -121,11 +121,102 @@ using std::endl;
 #define COLORBLOCK_RADIUS				16
 
 // GUI 系统
-#define BUTTON_ID_1						1
-#define BUTTON_ID_2						2
-#define BUTTON_ID_3						3
-#define INPUT_IN_1						21
+#define BUTTON_ID_OPEN					1
+#define BUTTON_ID_SAVE					2
+#define BUTTON_ID_AID					3
+#define BUTTON_ID_FULLSCREEN			11
+#define INPUT_IN_CMD					21
 
+HWND hWndAid;
+PROCESS_INFORMATION pi;
+STARTUPINFO si;//用于指定新进程的主窗口特性的一个结构
+
+/*
+* 启动窗口信息&标志
+*/
+D3DWnd *startup;
+HWND hWndStartup = NULL;
+bool bDrag;
+POINT ptCur;
+CD3DGUISystem *pGuiStartup;
+//bool g_isModaling;
+
+int DoModal(HWND *pHWnd, HWND hWndParent = NULL)
+{
+	void EndModal(int nCode);
+	void MYCALL1 Render();
+
+	if (pHWnd == NULL)
+		return -1;
+	HWND hWnd = *pHWnd;
+
+	if (hWnd == NULL || !IsWindow(hWnd))
+		return -1;
+
+	//标识处于模态状态中   
+	//g_isModaling = TRUE;
+	//显示自己   
+	ShowWindow(hWnd, SW_SHOW);
+	BringWindowToTop(hWnd);
+	//disable掉父窗口   
+	HWND hParentWnd = hWndParent;
+	while (hParentWnd != NULL)
+	{
+		//EnableWindow(hParentWnd, FALSE);
+		hParentWnd = GetParent(hParentWnd);
+	}
+	//接管消息循环   
+	MSG msg;
+	while (msg.message != WM_QUIT)
+	{
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+
+			if (msg.hwnd == hWnd)
+			{
+				if (msg.message == WM_SYSCOMMAND && msg.wParam == SC_CLOSE)
+				{
+					EndModal(0);
+					break;
+				}
+			}
+			else if (msg.hwnd == hWndParent)
+			{
+				if (msg.message == WM_CLOSE
+					|| msg.message == WM_LBUTTONDOWN || msg.message == WM_RBUTTONDOWN
+					|| msg.message == WM_NCLBUTTONDOWN || msg.message == WM_NCRBUTTONDOWN)
+				{
+					DestroyWindow(hWnd);
+					//SendMessage(hWnd, WM_CLOSE, 0, 0);
+					EndModal(0);
+					break;
+				}
+			}
+		}
+		Render();
+
+		Sleep(16);
+	}
+	//模态已经退出   
+	//恢复父窗口的enable状态   
+	hParentWnd = hWndParent;
+	while (hParentWnd != NULL)
+	{
+		EnableWindow(hParentWnd, TRUE);
+		hParentWnd = GetParent(hParentWnd);
+	}
+
+	return 0;//g_nModalCode;
+}
+
+void EndModal(int nCode)
+{
+	//g_nModalCode = nCode;
+	//g_isModaling = FALSE;
+	PostMessage(NULL, WM_NULL, 0, 0);
+}
 
 /*
  * 窗口信息&标志

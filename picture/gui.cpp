@@ -158,32 +158,6 @@ bool SmoothLine(CDC * pDC, const POINT & start, const POINT & end, const DWORD &
 				pDest[1] = (byte)(pSrc[1] * alpha + pBack[1] * alpha2);
 				pDest[0] = (byte)(pSrc[0] * alpha + pBack[0] * alpha2);
 				pDC->SetPixel({ (LONG)lPos,i }, blendColor);
-
-				float ra = 2.2f;
-				/*if (xBias < hproj)
-				{
-				POINT p3 = { (LONG)xPos - 1,i };
-				backColor = pDC->GetPixel(p3);
-				pBack = (byte*)&backColor;
-				alpha = (hproj - xBias)/ ra;
-				alpha2 = 1 - alpha;
-				pDest[2] = (byte)(pSrc[2] * alpha + pBack[2] * alpha2);
-				pDest[1] = (byte)(pSrc[1] * alpha + pBack[1] * alpha2);
-				pDest[0] = (byte)(pSrc[0] * alpha + pBack[0] * alpha2);
-				pDC->SetPixel(p3, blendColor);
-				}
-				else if (1.0f - xBias < hproj)
-				{
-				POINT p3 = { (LONG)xPos + 2,i };
-				backColor = pDC->GetPixel(p3);
-				pBack = (byte*)&backColor;
-				alpha = (hproj - 1.0f + xBias)/ ra;
-				alpha2 = 1 - alpha;
-				pDest[2] = (byte)(pSrc[2] * alpha + pBack[2] * alpha2);
-				pDest[1] = (byte)(pSrc[1] * alpha + pBack[1] * alpha2);
-				pDest[0] = (byte)(pSrc[0] * alpha + pBack[0] * alpha2);
-				pDC->SetPixel(p3, blendColor);
-				}*/
 			}
 		}
 		else//偏水平直线
@@ -196,7 +170,7 @@ bool SmoothLine(CDC * pDC, const POINT & start, const POINT & end, const DWORD &
 				lBias += 1;*/
 				DWORD blendColor = 0;
 				byte *pDest = ((byte*)&blendColor);
-				DWORD backColor = pDC->GetPixel({ i,(LONG)lPos + 1 });
+				DWORD backColor = pDC->GetPixel({ i,(LONG)lPos });
 				byte *pBack = (byte*)&backColor;
 				byte *pSrc = (byte*)&color;
 
@@ -359,6 +333,47 @@ inline bool SmoothLine2(CDC * pDC, const POINT & start, const POINT & end, const
 
 	return true;
 }
+
+bool AlphaBlendLine(CDC * pDC, const POINT & start, int len, const DWORD & color, byte alpha, bool bVertical = true)
+{
+	if (pDC == NULL || len <= 0)
+		return false;
+
+	if (bVertical)
+	{
+		for (int i = start.y; i < start.y + len; i++)
+		{
+			byte *pSrc = (byte*)&color;
+			DWORD blendColor = 0;
+			byte *pDest = ((byte*)&blendColor);
+			DWORD backColor = pDC->GetPixel({ start.x,i });
+			byte *pBack = (byte*)&backColor;
+			byte alpha2 = 1 - alpha;
+			pDest[2] = (byte)((pSrc[2] * alpha + pBack[2] * alpha2) / 255.0f);
+			pDest[1] = (byte)((pSrc[1] * alpha + pBack[1] * alpha2) / 255.0f);
+			pDest[0] = (byte)((pSrc[0] * alpha + pBack[0] * alpha2) / 255.0f);
+			pDC->SetPixel({ start.x,i }, blendColor);
+		}
+	}
+	else
+	{
+		for (int i = start.x; i < start.x + len; i++)
+		{
+			byte *pSrc = (byte*)&color;
+			DWORD blendColor = 0;
+			byte *pDest = ((byte*)&blendColor);
+			DWORD backColor = pDC->GetPixel({ i,start.y });
+			byte *pBack = (byte*)&backColor;
+			byte alpha2 = 1 - alpha;
+			pDest[2] = (byte)(pSrc[2] * alpha + pBack[2] * alpha2);
+			pDest[1] = (byte)(pSrc[1] * alpha + pBack[1] * alpha2);
+			pDest[0] = (byte)(pSrc[0] * alpha + pBack[0] * alpha2);
+			pDC->SetPixel({ i,start.y }, blendColor);
+		}
+	}
+
+	return true;
+}
 #endif // USE_GDIGUI
 
 void CGUIControl::UpdateRects()
@@ -492,25 +507,25 @@ void CGUIControl::Dock(UINT * pbufw, UINT * pbufh)
 	switch (dockMode)
 	{
 	case GUI_WINDOCK_NORMAL:
-		posX = ROUND(dockX);
-		posY = ROUND(dockY);
+		posX = ROUNDF(dockX);
+		posY = ROUNDF(dockY);
 		break;
 	case GUI_WINDOCK_RIGHT:
-		posX = ROUND((float)bufw - width - dockX);
-		posY = ROUND(dockY);
+		posX = ROUNDF((float)bufw - width - dockX);
+		posY = ROUNDF(dockY);
 		break;
 	case GUI_WINDOCK_BOTTOM:
-		posX = ROUND(dockX);
-		posY = ROUND((float)bufh - height - dockY);
+		posX = ROUNDF(dockX);
+		posY = ROUNDF((float)bufh - height - dockY);
 		break;
 	case GUI_WINDOCK_BOTTOMRIGHT:
-		posX = ROUND((float)bufw - width - dockX);
-		posY = ROUND((float)bufh - height - dockY);
+		posX = ROUNDF((float)bufw - width - dockX);
+		posY = ROUNDF((float)bufh - height - dockY);
 		break;
 	case GUI_WINDOCK_BOTTOMHSPAN:
 		width = (int)bufw;
 		posX = 0;
-		posY = ROUND((float)bufh - height - dockY);
+		posY = ROUNDF((float)bufh - height - dockY);
 		break;
 	case GUI_WINDOCK_FULLSCREEN:
 		width = (int)bufw;
@@ -519,10 +534,10 @@ void CGUIControl::Dock(UINT * pbufw, UINT * pbufh)
 		posY = 0;
 		break;
 	case GUI_WINDOCK_SCALE:
-		width = ROUND(bufw*dockW);
-		height = ROUND(bufh*dockH);
-		posX = ROUND(dockX*bufw);
-		posY = ROUND(dockY*bufh);
+		width = ROUNDF(bufw*dockW);
+		height = ROUNDF(bufh*dockH);
+		posX = ROUNDF(dockX*bufw);
+		posY = ROUNDF(dockY*bufh);
 		break;
 	}
 	UpdateRects();
@@ -594,7 +609,7 @@ byte CGUIControl::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
 
 	switch (uMsg) {
 	case WM_LBUTTONDOWN:
-		if (inside && state != GUI_STATE_DOWN)
+		if (inside/* && state != GUI_STATE_DOWN*/)
 		{
 			theevent = GUI_EVENT_LBUTTONDOWN;
 			newstate = GUI_STATE_DOWN;
@@ -624,6 +639,10 @@ byte CGUIControl::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
 				theevent = GUI_EVENT_MOUSEENTER;
 				newstate = GUI_STATE_OVER;
 			}
+			else
+			{
+				theevent = GUI_EVENT_MOUSEMOVE;
+			}
 		}
 		else
 		{
@@ -636,6 +655,14 @@ byte CGUIControl::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_MOUSEWHEEL:
 		theevent = GUI_EVENT_MOUSEWHEEL;
+		break;
+	case WM_RBUTTONDOWN:
+		if (inside)
+			theevent = GUI_EVENT_RBUTTONDOWN;
+		break;
+	case WM_RBUTTONUP:
+		if (inside)
+			theevent = GUI_EVENT_RBUTTONUP;
 		break;
 	}
 
@@ -988,8 +1015,8 @@ bool CD3DGUISystem::AddBackdrop(WCHAR *TexFileName, float x, float y, float widt
 	pBackdrop->dockY = y;
 	pBackdrop->dockW = width;
 	pBackdrop->dockH = height;
-	pBackdrop->width = ROUND(width);
-	pBackdrop->height = ROUND(height);
+	pBackdrop->width = ROUNDF(width);
+	pBackdrop->height = ROUNDF(height);
 	pBackdrop->Dock(pBufferW, pBufferH);
 
 	pBackdrop->state = GUI_STATE_OUT;
@@ -1034,7 +1061,7 @@ bool CD3DGUISystem::AddStatic(int ID, float x, float y, float width, float heigh
 	pStatic->dockY = y;
 	pStatic->dockW = width;
 	pStatic->dockH = height;
-	pStatic->SetSize(ROUND(width), ROUND(height));
+	pStatic->SetSize(ROUNDF(width), ROUNDF(height));
 	pStatic->Dock(pBufferW, pBufferH);
 
 	pStatic->SetText(text);
@@ -1067,7 +1094,7 @@ bool CD3DGUISystem::AddButton(int ID, float x, float y, float width, float heigh
 	pButton->dockY = y;
 	pButton->dockW = width;
 	pButton->dockH = height;
-	pButton->SetSize(ROUND(width), ROUND(height));
+	pButton->SetSize(ROUNDF(width), ROUNDF(height));
 	pButton->Dock(pBufferW, pBufferH);
 
 	pButton->SetText(text);
@@ -1121,7 +1148,7 @@ bool CD3DGUISystem::AddEdit(int ID, float x, float y, float width, float height,
 	pEdit->dockY = y;
 	pEdit->dockW = width;
 	pEdit->dockH = height;
-	pEdit->SetSize(ROUND(width), ROUND(height));
+	pEdit->SetSize(ROUNDF(width), ROUNDF(height));
 	pEdit->Dock(pBufferW, pBufferH);
 	pEdit->dx = 0;
 	pEdit->dy = 0;
@@ -1390,13 +1417,13 @@ bool D3DGUIStatic::Render(LPDIRECT3DDEVICE9 dev)
 		return false;
 
 	// 计时
-	//LARGE_INTEGER tick = { 0 };
-	//QueryPerformanceCounter(&tick);
+	//LARGE_INTEGER curTime = { 0 };
+	//QueryPerformanceCounter(&curTime);
 
 	if (font && strText)
 		font->DrawTextW(NULL, strText, -1, &rcText, TEXTFORMAT_LEFT, color);
 
-	//lastTick.QuadPart = tick.QuadPart;
+	//lastTick.QuadPart = curTime.QuadPart;
 
 	return true;
 }
@@ -1485,7 +1512,7 @@ bool D3DGUIButton::Render(LPDIRECT3DDEVICE9 dev)
 	// 第二图层绘制
 	// 不用多线程处理渐变
 	float dAplha = 1000.0f*(tick.QuadPart - lastTick.QuadPart) / frequency.QuadPart *speed;
-	if (displayEvent == GUI_EVENT_MOUSEENTER)
+	if (displayEvent == GUI_EVENT_MOUSEENTER || displayEvent == GUI_EVENT_MOUSEMOVE)
 	{
 		if (alpha != 255)
 			alpha += min(255 - alpha, dAplha);
@@ -1526,7 +1553,7 @@ bool D3DGUIButton::Render(LPDIRECT3DDEVICE9 dev)
 		dev->SetTexture(0, texOver);
 
 	// 绘制第二图层
-	ChangeAlpha(model, ROUND_BYTE(alpha));//设置实时透明度
+	ChangeAlpha(model, ROUNDF_BYTE(alpha));//设置实时透明度
 	D3DGUI_RENDER_VBUFFER(dev, model);
 	ChangeAlpha(model, 255);
 
@@ -1545,9 +1572,9 @@ bool D3DGUIButton::Render(LPDIRECT3DDEVICE9 dev)
 		, ((textcolor >> 8) & 0xFF)*(255 - alpha) / 255
 		, (textcolor & 0xFF)*(255 - alpha) / 255);*/
 		DWORD alphacolor = D3DCOLOR_ARGB(textColor >> 24
-			, (BYTE_PART(textColor >> 16)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor >> 16))) >> 8
-			, (BYTE_PART(textColor >> 8)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor >> 8))) >> 8
-			, (BYTE_PART(textColor)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor))) >> 8);
+			, (BYTE_PART(textColor >> 16)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor >> 16))) >> 8
+			, (BYTE_PART(textColor >> 8)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor >> 8))) >> 8
+			, (BYTE_PART(textColor)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor))) >> 8);
 		/*textregion.bottom -= 2;
 		textregion.right -= 2;*/
 		font->DrawTextW(NULL, strText, -1, &rcText, TEXTFORMAT_DEFAULT, alphacolor);
@@ -1605,6 +1632,7 @@ GDIDevice::GDIDevice()
 GDIDevice::~GDIDevice()
 {
 	DeleteMemDCBMP(pmDB);
+	DeleteMemDCBMP(pmDBBack);
 }
 
 HRESULT __stdcall GDIDevice::QueryInterface(const IID & riid, void ** ppvObj)
@@ -1636,6 +1664,15 @@ HRESULT __stdcall GDIDevice::SetDevice(CDC * pdc)
 	}
 	pmDB = new memDCBMP;
 	MyDrawPrepareOne(pdevDC, pmDB, 0, 0
+		, CRect(0, 0, GetSystemMetrics(SM_CXFULLSCREEN), GetSystemMetrics(SM_CYFULLSCREEN)));
+
+	if (pmDBBack)
+	{
+		DeleteMemDCBMP(pmDBBack);
+		pmDBBack = NULL;
+	}
+	pmDBBack = new memDCBMP;
+	MyDrawPrepareOne(pdevDC, pmDBBack, 0, 0
 		, CRect(0, 0, GetSystemMetrics(SM_CXFULLSCREEN), GetSystemMetrics(SM_CYFULLSCREEN)));
 
 	return S_OK;
@@ -1685,7 +1722,7 @@ bool GDIGUIControl::RenderText(CDC * pDC, UINT nFormat, DWORD *pNewColor)
 			pDC->SetTextColor(textColor);
 
 		pDC->SetBkMode(TRANSPARENT);
-		pDC->DrawTextW(strText, &rcText, nFormat);
+		test = pDC->DrawTextW(strText, &rcText, nFormat);
 		pDC->SelectObject(pOldFont);
 
 		return true;
@@ -1719,21 +1756,24 @@ bool GDIGUIStatic::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
-	RECT refreshrect = RECT(posX, posY, width, height);
-	pMemDC->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);
+	//RECT refreshrect = RECT(posX, posY, width, height);
+	//pMemDC->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);
+	pMemDC->BitBlt(rcBoundingBox.left, rcBoundingBox.top, rcBoundingBox.right, rcBoundingBox.bottom
+		, pMemDCBack, rcBoundingBox.left, rcBoundingBox.top, SRCCOPY);
 
 	// 贴图
 	if (pic)
-		pic->Show(pMemDC, ROUND(posX), ROUND(posY), ROUND_BYTE(alpha), false);//测试
+		pic->Show(pMemDC, posX, posY, 255, true, pMemDCBack);//测试
 
-																			  // 绘制文本
+															 // 绘制文本
 	RenderText(pMemDC, textFormat);
 
 	// 显示到目标
@@ -1756,26 +1796,27 @@ bool GDIGUIBack::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
 	RECT refreshrect = RECT(posX, posY, width, height);
-	pMemDC->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);
+	pMemDCBack->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);
 
 	// 贴图
 	if (pic)
-		pic->Show(pMemDC, ROUND(posX), ROUND(posY), ROUND_BYTE(alpha), false);//测试
+		pic->Show(pMemDCBack, ROUND(posX), ROUND(posY), ROUNDF_BYTE(alpha), false);//测试
 
-																			  // 绘制文本
-																			  //RenderText(pMemDC, textFormat);
+																				  // 绘制文本
+																				  //RenderText(pMemDC, textFormat);
 
-																			  // 显示到目标
-	pDestDC->BitBlt(posX, posY, width, height
-		, pMemDC, posX, posY, SRCCOPY);
+																				  // 显示到目标
+	pMemDC->BitBlt(posX, posY, width, height
+		, pMemDCBack, posX, posY, SRCCOPY);
 
 	return true;
 }
@@ -1857,7 +1898,7 @@ bool GDIGUIButton::DisplayCycle(LPGDIDevice dev)
 	LARGE_INTEGER tick = { 0 };
 	QueryPerformanceCounter(&tick);
 	float dAlpha = 1000.0f*(tick.QuadPart - lastTick.QuadPart) / frequency.QuadPart *speed;
-	if (displayEvent == GUI_EVENT_MOUSEENTER)
+	if (displayEvent == GUI_EVENT_MOUSEENTER || displayEvent == GUI_EVENT_MOUSEMOVE)
 	{
 		if (alpha != 255)
 			alpha += min(255 - alpha, dAlpha);
@@ -1904,12 +1945,13 @@ bool GDIGUIButton::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
 	int basex = ROUND(posX), basey = ROUND(posY);//待刷新区域坐标
 	int basew = ROUND(width), baseh = ROUND(height);//待刷新区域尺寸
@@ -1956,20 +1998,20 @@ bool GDIGUIButton::Render(LPGDIDevice dev)
 	}
 
 	// 清除背景
-	RECT refreshrect = RECT(basex, basey, basew, baseh);
-	pMemDC->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);//清除背景
+	//RECT refreshrect = RECT(basex, basey, basew, baseh);
+	//pMemDC->FillSolidRect(&refreshrect, COLORGDI_DEFAULT);
 
-														  // 绘制两层贴图
+	// 绘制两层贴图
 	if (pic)
-		pic->Show(pMemDC, posX + dx, posY + dy, 255, false);
+		pic->Show(pMemDC, posX + dx, posY + dy, 255, true, pMemDCBack);
 	if (upperLayer)
-		upperLayer->Show(pMemDC, posX + dx, posY + dy, ROUND_BYTE(alpha), false);
+		upperLayer->Show(pMemDC, posX + dx, posY + dy, ROUNDF_BYTE(alpha), false);
 
 	// 绘制文本
 	DWORD alphacolor = RGB(
-		(BYTE_PART(textColor >> 16)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor >> 16))) >> 8
-		, (BYTE_PART(textColor >> 8)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor >> 8))) >> 8
-		, (BYTE_PART(textColor)*ROUND_BYTE(255 - alpha) + ROUND_BYTE(alpha)*(255 - BYTE_PART(textColor))) >> 8);
+		(BYTE_PART(textColor >> 16)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor >> 16))) >> 8
+		, (BYTE_PART(textColor >> 8)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor >> 8))) >> 8
+		, (BYTE_PART(textColor)*ROUNDF_BYTE(255 - alpha) + ROUNDF_BYTE(alpha)*(255 - BYTE_PART(textColor))) >> 8);
 	RenderText(pMemDC, textFormat, &alphacolor);
 
 	// 显示到目标
@@ -2036,12 +2078,13 @@ bool GDIGUITristate::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
 	memPic *ppic = NULL;
 
@@ -2061,20 +2104,21 @@ bool GDIGUITristate::Render(LPGDIDevice dev)
 
 	//GDIGUITristate实际区域是参数区域向上扩展一倍，refreshrect和BitBlt中作调整！
 	// 清除背景
-	RECT unionRect;
-	UnionRect(&unionRect, &rcBoundingBox, &rcText);//控件区域和文本区域并
-	pMemDC->FillSolidRect(&unionRect, COLORGDI_DEFAULT);//清除背景
+	RECT rcUnion;
+	UnionRect(&rcUnion, &rcBoundingBox, &rcText);//控件区域和文本区域并
+	pMemDC->BitBlt(rcUnion.left, rcUnion.top, rcUnion.right, rcUnion.bottom
+		, pMemDCBack, rcUnion.left, rcUnion.top, SRCCOPY);
 
-														// 绘制贴图
+	// 绘制贴图
 	if (ppic)
-		ppic->Show(pMemDC, posX, posY, ROUND_BYTE(alpha), false);
+		ppic->Show(pMemDC, posX, posY, ROUNDF_BYTE(alpha), true, pMemDCBack);
 
 	// 绘制文本
 	RenderText(pMemDC, textFormat);
 
 	// 显示到目标
-	pDestDC->BitBlt(unionRect.left, unionRect.top, WIDTHOF(unionRect), HEIGHTOF(unionRect)
-		, pMemDC, unionRect.left, unionRect.top, SRCCOPY);
+	pDestDC->BitBlt(rcUnion.left, rcUnion.top, WIDTHOF(rcUnion), HEIGHTOF(rcUnion)
+		, pMemDC, rcUnion.left, rcUnion.top, SRCCOPY);
 
 	return true;
 }
@@ -2129,12 +2173,13 @@ bool GDIGUISwitch::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
 	memPic *ppic = NULL;
 
@@ -2150,25 +2195,25 @@ bool GDIGUISwitch::Render(LPGDIDevice dev)
 
 	//GDIGUITristate实际区域是参数区域向上扩展一倍，refreshrect和BitBlt中作调整！
 	// 清除背景
-	RECT unionRect;
-	UnionRect(&unionRect, &rcBoundingBox, &rcText);//控件区域和文本区域并
-	pMemDC->FillSolidRect(&unionRect, COLORGDI_DEFAULT);//清除背景
+	RECT rcUnion;
+	UnionRect(&rcUnion, &rcBoundingBox, &rcText);//控件区域和文本区域并
+												 //pMemDC->FillSolidRect(&rcUnion, COLORGDI_DEFAULT);//清除背景
 
-														// 绘制贴图
+												 // 绘制贴图
 	if (ppic)
-		ppic->Show(pMemDC, posX, posY, ROUND_BYTE(alpha), false);
+		ppic->Show(pMemDC, posX, posY, ROUNDF_BYTE(alpha), true, pMemDCBack);
 
 	// 绘制文本
 	RenderText(pMemDC, textFormat);
 
 	// 显示到目标
-	pDestDC->BitBlt(unionRect.left, unionRect.top, WIDTHOF(unionRect), HEIGHTOF(unionRect)
-		, pMemDC, unionRect.left, unionRect.top, SRCCOPY);
+	pDestDC->BitBlt(rcUnion.left, rcUnion.top, WIDTHOF(rcUnion), HEIGHTOF(rcUnion)
+		, pMemDC, rcUnion.left, rcUnion.top, SRCCOPY);
 
 	return true;
 }
 
-bool GDIGUIWave::SetStopBackground()
+bool GDIGUIWave::SetEmptyBackground()
 {
 	if (waveBuf == NULL)
 		return false;
@@ -2197,7 +2242,7 @@ GDIGUIWave::GDIGUIWave()
 
 	amp = { 0 };
 	waveMoved = 0;
-	curwavemoved = 0;
+	newWaveMoved = 0;
 	startTime = { 0 };
 	pauseTime = { 0 };
 	secRec = 0;
@@ -2206,7 +2251,8 @@ GDIGUIWave::GDIGUIWave()
 
 	timeSpan = 2000;
 	ampSpan = 2000;
-	freq = -1;
+	freq = 0.0f;
+	nReview = 0;
 	waveBuf = NULL;
 
 	textFormat = TEXTFORMAT_TOP;
@@ -2240,24 +2286,113 @@ void GDIGUIWave::PrepareWaveDC(CDC * pdc)
 		waveBuf = new memDCBMP;
 		MyDrawPrepareOne(pdc, waveBuf, 0, 0, CRect(0, 0, width, height));
 
-		SetStopBackground();
+		SetEmptyBackground();
 	}
+}
+
+byte GDIGUIWave::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
+{
+	if (bDisabled || !bVisible)
+		return false;
+
+	byte event = CGUIControl::HandleMouse(uMsg, pt, wParam, lParam);
+
+	if (event == GUI_EVENT_MOUSEMOVE)
+	{
+		if (waveState == WAVE_STATE_PAUSED)
+		{
+			if (samples.GetSize() == 0)
+				return event;
+			displayEvent = event;
+
+			nReview = 0;
+			sample3D *pSample = samples.GetPAt(nRenderd - 1);
+			if (pSample == NULL)
+				return event;
+			int xDiff = posX + width - pt.x;
+			//鼠标位置对应时间与最后一个绘制的样本时间差
+			LONGLONG timeCursor = curTime.QuadPart - startTime.QuadPart
+				- (LONGLONG)(timeSpan / 1000.0f*(float)xDiff / width*frequency.QuadPart);
+			LONGLONG timeDiff = pSample->time - timeCursor;
+			if (timeDiff < 0)
+			{
+				nReview = nRenderd;
+				return event;
+			}
+			int idxDiff = (int)(timeDiff / frequency.QuadPart * freq);
+			int idx = max(0, nRenderd - 1 - idxDiff);
+
+			pSample = samples.GetPAt(idx);
+			if (pSample == NULL)
+				return event;
+			LONGLONG timeDist = abs(pSample->time - timeCursor);
+			nReview = idx + 1;
+			idx--;
+			int i;
+			for (i = 0; i < 50 && idx >= 0; i++, idx--)
+			{
+				pSample = samples.GetPAt(idx);
+				if (pSample == NULL)
+					return event;
+				LONGLONG newTimeDist = abs(pSample->time - timeCursor);
+				if (newTimeDist < timeDist)
+				{
+					timeDist = newTimeDist;
+					nReview = idx + 1;
+				}
+				else
+					break;
+			}
+			if (i == 0)
+			{
+				idx++;
+				for (i = 0; i < 200 && idx < nRenderd; i++)
+				{
+					idx++;
+					pSample = samples.GetPAt(idx);
+					if (pSample == NULL)
+						return event;
+					LONGLONG newTimeDist = abs(pSample->time - timeCursor);
+					if (newTimeDist < timeDist)
+					{
+						timeDist = newTimeDist;
+						nReview = idx + 1;
+					}
+					else
+						break;
+				}
+			}
+		}
+	}
+	else if (event == GUI_EVENT_MOUSELEAVE)
+	{
+		if (waveState == WAVE_STATE_PAUSED)
+		{
+			if (nReview > 0)
+			{
+				//使鼠标移出控件时更新review
+				//nReview = 0;
+				//displayEvent = event;
+			}
+		}
+	}
+
+	return event;
 }
 
 bool GDIGUIWave::DisplayCycle(LPGDIDevice dev)
 {
 	if (waveState == WAVE_STATE_RUNNING)
 	{
-		LARGE_INTEGER tick = { 0 };
-		QueryPerformanceCounter(&tick);
+		QueryPerformanceCounter(&curTime);
 
 		//计算波形移动量
-		float secPassed = (tick.QuadPart - startTime.QuadPart) / (float)frequency.QuadPart;
-		int roundXBias = ROUND(width*1000.0f*secPassed / timeSpan - waveMoved);
+		sec = (curTime.QuadPart - startTime.QuadPart) / (double)frequency.QuadPart;
+		int roundXBias = ROUND(width * 1000 * sec / timeSpan - waveMoved);
 
-		curwavemoved = roundXBias;//当前移动量
+		newWaveMoved = roundXBias;//当前移动量
 		waveMoved += roundXBias;//总移动量
-		lastX -= curwavemoved;//上一个样本位置偏移
+		lastX -= newWaveMoved;//上一个样本位置偏移
 
 		if (waveBuf)
 		{
@@ -2272,20 +2407,27 @@ bool GDIGUIWave::DisplayCycle(LPGDIDevice dev)
 				// 画基准线
 				CPen pen0(PS_SOLID, 2, COLORGDI_GREY);
 				CPen* pOldPen = waveBuf->pDC->SelectObject(&pen0);
-				waveBuf->pDC->MoveTo({ width - curwavemoved - 1, (LONG)(height / 2) });
-				waveBuf->pDC->LineTo({ width, (LONG)(height / 2) });
-				//画读秒线
-				if (secPassed >= secRec)
+				if (newWaveMoved > 0)
 				{
-					CPen penSec(PS_SOLID, 1, 0xB0B0B0);
-					waveBuf->pDC->SelectObject(&penSec);
+					waveBuf->pDC->MoveTo({ width, (LONG)(height / 2) });
+					waveBuf->pDC->LineTo({ width - newWaveMoved - 1, (LONG)(height / 2) });
+				}
+				//画读秒线
+				if (sec >= secRec)
+				{
+					CPen penSec(PS_SOLID, 1, COLORGDI_MIDGREY);
+					CPen penSecBegin(PS_SOLID, 1, COLORGDI_RED2);
+					if (secRec>0)
+						waveBuf->pDC->SelectObject(&penSec);
+					else
+						waveBuf->pDC->SelectObject(&penSecBegin);
 
-					int secX = ROUND(width - width*1000.0f*(secPassed - secRec) / timeSpan) - 1;
+					int secX = ROUND(width - waveMoved + (float)width * 1000 * secRec / timeSpan) - 1;
 					waveBuf->pDC->MoveTo({ secX, 1 });
 					waveBuf->pDC->LineTo({ secX, height });
 
 					//文本显示
-					WCHAR strSec[16] = L"";
+					/*WCHAR strSec[16] = L"";
 					StringCchPrintfW(strSec, 16, L"%d", secRec);
 					CFont *pOldFont = waveBuf->pDC->SelectObject(font);
 					waveBuf->pDC->SetTextColor(0xA0A0A0);
@@ -2293,9 +2435,9 @@ bool GDIGUIWave::DisplayCycle(LPGDIDevice dev)
 					RECT rcSec = { secX - 10, height / 2, secX - 2, height / 2 + 20 };
 					waveBuf->pDC->SetBkMode(TRANSPARENT);
 					waveBuf->pDC->DrawTextW(strSec, &rcSec, TEXTFORMAT_RIGHTTOP);
-					waveBuf->pDC->SelectObject(pOldFont);
+					waveBuf->pDC->SelectObject(pOldFont);*/
 
-					secRec++;
+					secRec = (LONGLONG)sec + 1;
 				}
 
 				waveBuf->pDC->SelectObject(pOldPen);
@@ -2304,11 +2446,10 @@ bool GDIGUIWave::DisplayCycle(LPGDIDevice dev)
 		if (lastTick.QuadPart == 0)
 			lastTick.QuadPart = startTime.QuadPart;
 
-		//注释掉if因为Render()使用waveState驱动
 		//if (displayEvent != GUI_EVENT_NULL)
 		bool res = Render(dev);
 
-		lastTick.QuadPart = tick.QuadPart;
+		lastTick.QuadPart = curTime.QuadPart;
 		return res;
 	}
 	else if (displayEvent != GUI_EVENT_NULL)
@@ -2409,30 +2550,36 @@ void GDIGUIWave::SetAmpSpan(float span)
 	ampSpan = span;
 }
 
-void GDIGUIWave::FlagRestore()
+void GDIGUIWave::RestoreFlag()
 {
 	samples.RemoveAll();
+	times.RemoveAll();
+	freq = 0.0f;
+	nHandled = 0;
+	nRenderd = 0;
+	nReview = 0;
 
+	amp = { 0,0,0,0 };
 	lastX = width;
 	lastYx = 0;
 	lastYy = 0;
 	lastYz = 0;
 	waveMoved = 0;
-	curwavemoved = 0;
-	QueryPerformanceCounter(&startTime);
+	newWaveMoved = 0;
+
+	startTime = { 0 };
 	pauseTime = { 0 };
-	lastTick.QuadPart = startTime.QuadPart;
+	lastTick = { 0 };
 	lastBeat = 0;
 	secRec = 0;
-	nRenderd = 0;
-
-	freq = -1;
+	sec = 0.0;
 }
 
 void GDIGUIWave::Start()
 {
-	FlagRestore();
+	RestoreFlag();
 
+	QueryPerformanceCounter(&startTime);
 	waveState = WAVE_STATE_RUNNING;
 }
 
@@ -2447,16 +2594,14 @@ void GDIGUIWave::Resume()
 {
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
+
 	//暂停后时间修正
 	startTime.QuadPart += tick.QuadPart - pauseTime.QuadPart;
 	lastTick.QuadPart += tick.QuadPart - pauseTime.QuadPart;
 
-	for (int i = nRenderd - 1; i < samples.GetSize(); i++)
-	{
-		sample3D *ps = samples.GetPAt(i);
-		if (ps)
-			ps->time += tick.QuadPart - pauseTime.QuadPart;//TODO:是不是应该i-1，因为需要暂停判断，以上一个已绘制的为基准
-	}
+	// 复位样本查看
+	if (nReview > 0)
+		nReview = 0;
 
 	waveState = WAVE_STATE_RUNNING;
 }
@@ -2465,7 +2610,8 @@ void GDIGUIWave::Stop()
 {
 	waveState = WAVE_STATE_STOPED;
 
-	Invalidate();
+	SetEmptyBackground();
+	Invalidate();// 强制更新
 }
 
 bool GDIGUIWave::Render(LPGDIDevice dev)
@@ -2474,19 +2620,17 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
-
-	LARGE_INTEGER tick = { 0 };
-	QueryPerformanceCounter(&tick);
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	if (pDestDC == NULL || pMemDC == NULL/* || pMemDCBack == NULL*/)
+		return false;
 
 	CPen penLineX(PS_SOLID, 1, lineColor);
 	CPen penLineY(PS_SOLID, 1, lineColorY);
 	CPen penLineZ(PS_SOLID, 1, lineColorZ);
+	// 绘制波形
 	if (waveState == WAVE_STATE_RUNNING)
 	{
 		if (waveBuf != NULL && waveBuf->pDC != NULL)
@@ -2497,42 +2641,46 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 			while (samples.GetSize() > nRenderd)
 			{
 				// 计算采样点在波形图中位置
-				//GetAt获取引用，线程不安全，列表插入时指针可能改变
+				// GetAt获取引用，线程不安全，列表插入时指针可能改变
 				amp = samples.GetAtSafe(nRenderd);
-				LONGLONG time = amp.time;
 				int ampYx = (int)(amp.ampX / ampSpan*height / 2);
 				int ampYy = (int)(amp.ampY / ampSpan*height / 2);
 				int ampYz = (int)(amp.ampZ / ampSpan*height / 2);
-				int ampX;// = width - curwavemoved + (int)(width*1000.0f*(time - lastTick.QuadPart) / (float)frequency.QuadPart / timeSpan);
-				ampX = width - waveMoved + (int)(width*1000.0f*(time/* - startTime.QuadPart*/) / (float)frequency.QuadPart / timeSpan);
+				//int ampX = width - newWaveMoved
+				//	+ (int)(width*1000*(amp.time - lastTick.QuadPart + startTime.QuadPart)
+				/// (float)frequency.QuadPart / timeSpan);
+				int ampX = width - waveMoved
+					+ (int)(amp.time * 1000 / (float)frequency.QuadPart*width / timeSpan);
 
 				// 防止画线画到buffer外，造成画面上下一帧波形产生断裂
 				if (ampX >= width)
 					break;
-				//断裂控制
-				if (lastX < 0)
-				{
-					lastX = ampX;
-					nRenderd++;
-					continue;
-				}
 
-				// 画线
-				waveBuf->pDC->SelectObject(&penLineX);
-				SmoothLine(waveBuf->pDC
-					, { (LONG)(lastX), (LONG)(height / 2 - lastYx) }
-					, { ampX, (LONG)(height / 2 - ampYx) }
-				, lineColor);
-				waveBuf->pDC->SelectObject(&penLineY);
-				SmoothLine(waveBuf->pDC
-					, { (LONG)(lastX), (LONG)(height / 2 - lastYy) }
-					, { ampX, (LONG)(height / 2 - ampYy) }
-				, lineColorY);
-				waveBuf->pDC->SelectObject(&penLineZ);
-				SmoothLine(waveBuf->pDC
-					, { (LONG)(lastX), (LONG)(height / 2 - lastYz) }
-					, { ampX, (LONG)(height / 2 - ampYz) }
-				, lineColorZ);
+				//波形断裂控制（1、防止绘制超长一段线 2、防止连接长时间间隔的波形）
+				const float msTimeInterupt = 200.0f;//大于这个毫秒时间间隔的数据间不绘制波形
+				if (lastX < 0 || (ampX - lastX) > width*msTimeInterupt / timeSpan)
+				{
+					;
+				}
+				else
+				{
+					// 画线
+					waveBuf->pDC->SelectObject(&penLineX);
+					SmoothLine(waveBuf->pDC
+						, { (LONG)(lastX), (LONG)(height / 2 - lastYx) }
+						, { ampX, (LONG)(height / 2 - ampYx) }
+					, lineColor);
+					waveBuf->pDC->SelectObject(&penLineY);
+					SmoothLine(waveBuf->pDC
+						, { (LONG)(lastX), (LONG)(height / 2 - lastYy) }
+						, { ampX, (LONG)(height / 2 - ampYy) }
+					, lineColorY);
+					waveBuf->pDC->SelectObject(&penLineZ);
+					SmoothLine(waveBuf->pDC
+						, { (LONG)(lastX), (LONG)(height / 2 - lastYz) }
+						, { ampX, (LONG)(height / 2 - ampYz) }
+					, lineColorZ);
+				}
 
 				// 采样频度辅助线
 				waveBuf->pDC->SelectObject(&penAux);
@@ -2554,7 +2702,7 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 			while (times.GetSize() > 0)
 			{
 				int endY = 2;
-				timeStamp time = times.GetAt(0);
+				timeStamp time = times.GetAtSafe(0);
 				if (time.type == TIMETYPE_1)
 				{
 					waveBuf->pDC->SelectObject(&penTime1);
@@ -2565,7 +2713,8 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 					waveBuf->pDC->SelectObject(&penTime2);
 					endY = 18;
 				}
-				int peakX = width - waveMoved + (int)(width*1000.0f*(time.time/* - lastTick.QuadPart*/) / (float)frequency.QuadPart / timeSpan);
+				int peakX = width - waveMoved
+					+ (int)(time.time * 1000 / (float)frequency.QuadPart*width / timeSpan);
 				waveBuf->pDC->MoveTo({ peakX, 2 });
 				waveBuf->pDC->LineTo({ peakX, endY });
 				times.Remove(0);
@@ -2573,8 +2722,8 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 			waveBuf->pDC->SelectObject(pOldPen);
 		}
 	}
-	else if (waveState == WAVE_STATE_STOPED)
-		SetStopBackground();
+	//else if (waveState == WAVE_STATE_STOPED)
+	//	SetEmptyBackground();
 
 	if (waveBuf)
 	{
@@ -2586,28 +2735,69 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 	}
 
 	// 绘制文本
+	// 当前波形值
 	WCHAR txt[64] = { 0 };
-	StringCchPrintfW(txt, 64, L"(%d/%d) %4d, %4d, %4d", samples.GetSize(), samples.GetCapacity()
+	StringCchPrintfW(txt, 64, L"(%d/%d) %4d, %4d, %4d"
+		, samples.GetSize(), samples.GetCapacity()
 		, amp.ampX, amp.ampY, amp.ampZ);
 	SetText(txt);
 	RenderText(pMemDC, textFormat);
-
+	// 振幅刻度
 	CFont *pold = (CFont*)pMemDC->SelectObject(font);
+	pMemDC->SetTextColor(COLORGDI_HEAVYGREY);
 	StringCchPrintfW(txt, 64, L"%.1f", ampSpan);
-	pMemDC->SetTextColor(COLORGDI_DARKGREY);
 	pMemDC->DrawTextW(txt, &rcText, TEXTFORMAT_LEFTTOP);
 	StringCchPrintfW(txt, 64, L"-%.1f", ampSpan);
 	pMemDC->DrawTextW(txt, &rcText, TEXTFORMAT_LEFTBOTTOM);
+	// 频率
 	StringCchPrintfW(txt, 64, L"%.1fhz", freq);
 	pMemDC->DrawTextW(txt, &rcText, TEXTFORMAT_RIGHTTOP);
-
-	if (waveState == WAVE_STATE_STOPED)
-		StringCchPrintfW(txt, 64, L"%.3f", 0.0f);
-	else if (waveState == WAVE_STATE_RUNNING)
-		TimeString(txt, 64, (tick.QuadPart - startTime.QuadPart) / (double)frequency.QuadPart);
-	else if (waveState == WAVE_STATE_PAUSED)
-		TimeString(txt, 64, (pauseTime.QuadPart - startTime.QuadPart) / (double)frequency.QuadPart);
+	// 计时
+	pMemDC->SetTextColor(COLORGDI_DARKGREY);
+	TimeString(txt, 64, sec);
 	pMemDC->DrawTextW(txt, &rcText, TEXTFORMAT_BOTTOM);
+
+	// 波形值查看
+	if (waveState == WAVE_STATE_PAUSED && nReview > 0)
+	{
+		CPen* pOldPen = pMemDC->SelectObject(&penLineX);
+
+		sample3D sam = samples.GetAtSafe(nReview - 1);
+		pMemDC->SetTextColor(COLORGDI_GREEN3);
+		StringCchPrintfW(txt, 64, L"查看数据: %4d, %4d, %4d(%.1f) "
+			, sam.ampX, sam.ampY, sam.ampZ
+			, sqrtf(SQ(sam.ampX) + SQ(sam.ampY) + SQ(sam.ampZ))
+		);
+		WCHAR strTime[32];
+		TimeString(strTime, 32, sam.time / (double)frequency.QuadPart);
+		StringCchCat(txt, 64, strTime);
+		pMemDC->DrawTextW(txt, &rcText, TEXTFORMAT_RIGHTBOTTOM);
+
+		int reviewX = width - waveMoved
+			+ (int)(sam.time * 1000 / (float)frequency.QuadPart*width / timeSpan);
+
+		AlphaBlendLine(pMemDC, { posX + reviewX, posY }, height, COLORGDI_GREEN2, 200);
+
+		/*CBrush brX, brY, brZ;
+		brX.CreateSolidBrush(lineColor);
+		brY.CreateSolidBrush(lineColorY);
+		brZ.CreateSolidBrush(lineColorZ);
+		CBrush *oldBr = pMemDC->SelectObject(&brX);
+		pMemDC->Ellipse(
+		CRect(posX + reviewX - 1, posY + height / 2 - sam.ampX / ampSpan*height / 2
+		, posX + reviewX + 2, posY + height / 2 - sam.ampX / ampSpan*height / 2 + 3));
+		pMemDC->SelectObject(&brY);
+		pMemDC->Ellipse(
+		CRect(posX + reviewX - 1, posY + height / 2 - sam.ampY / ampSpan*height / 2
+		, posX + reviewX + 2, posY + height / 2 - sam.ampY / ampSpan*height / 2 + 3));
+		pMemDC->SelectObject(&brZ);
+		pMemDC->Ellipse(
+		CRect(posX + reviewX - 1, posY + height / 2 - sam.ampZ / ampSpan*height / 2
+		, posX + reviewX + 2, posY + height / 2 - sam.ampZ / ampSpan*height / 2 + 3));
+		pMemDC->SelectObject(oldBr);*/
+		pMemDC->SelectObject(&pOldPen);
+	}
+	pMemDC->SelectObject(pold);
 
 	// 绘制图例
 	/*int iX = (int)(posX + width / 2 * 1.1f);
@@ -2622,8 +2812,6 @@ bool GDIGUIWave::Render(LPGDIDevice dev)
 	pMemDC->MoveTo(iX, iY); iX += 8;
 	pMemDC->LineTo(iX, iY); iX += 20;
 	pMemDC->SelectObject(pOldPen);*/
-
-	pMemDC->SelectObject(pold);
 
 	// 显示到目标
 	pDestDC->BitBlt(posX, posY, width, height
@@ -2660,19 +2848,23 @@ void CGDIGUISystem::ThreadGUI(LPVOID lpParam)
 	}
 	LPGDIDevice device = pGUISys->device;
 
-	//释放threadParam
+	//释放线程参数
 	delete lpParam;
 
+	CDC *pDestDC = device->GetDestDC();
 	CDC *pMemDC = device->GetMemDC();
-	if (pMemDC == NULL)
+	CDC *pMemDCBack = device->GetMemDCBack();
+	if (pMemDC == NULL || pMemDCBack == NULL || pDestDC == NULL)
 		return;
 	RECT rcFull = { 0,0,0,0 };
 	if (!(device->GetRect(&rcFull)))
 		return;
 
+	//默认背景
+	pMemDC->FillSolidRect(&rcFull, COLORGDI_DEFAULT);
+	pMemDCBack->FillSolidRect(&rcFull, COLORGDI_DEFAULT);
 	while (true)
 	{
-		bool bDraw = false;
 		//if (ppctrl != pGUISys->controls.GetData())//更新控件列表指针
 		//{
 		//	ppctrl = pGUISys->controls.GetData();
@@ -2683,37 +2875,42 @@ void CGDIGUISystem::ThreadGUI(LPVOID lpParam)
 		//	continue;
 		//}
 
-		//扫描每个控件
+		//背景控件
+		bool res = false;
 		for (int i = 0; i < pGUISys->backdrop.GetSize(); i++)
 		{
 			GDIGUIControl *pback = ppback[i];
 
 			if ((!pback->bDisabled && pback->bVisible)
-				|| pback->displayEvent == GUI_EVENT_REFRESH)
+				/*|| pback->displayEvent == GUI_EVENT_REFRESH*/)
 			{
-				bool res = pback->DisplayCycle(device);
-				if (res)
-				{
-					for (int i = 0; i < pGUISys->nControls; i++)
-					{
-						ppctrl[i]->Render(device);
-					}
-				}
+				res |= pback->DisplayCycle(device);
 			}
 		}
+		if (res)//背景控件更新，所有其他控件更新
+		{
+			for (int i = 0; i < pGUISys->nControls; i++)
+			{
+				ppctrl[i]->Invalidate();
+			}
+		}
+		//其他控件
 		for (int i = 0; i < pGUISys->nControls; i++)
 		{
 			GDIGUIControl *pctrl = ppctrl[i];
 
 			if ((!pctrl->bDisabled && pctrl->bVisible)
-				|| pctrl->displayEvent == GUI_EVENT_REFRESH)//控件处于使能状态或强制刷新
+				/*|| pctrl->displayEvent == GUI_EVENT_REFRESH*/)//控件处于使能状态
 			{
 				pctrl->DisplayCycle(device);
 			}
 		}
 
-		if (bDraw)
-			pMemDC->FillSolidRect(&rcFull, COLORGDI_DEFAULT);
+		if (res)//背景控件更新时，画面整体更新，拷贝到窗口DC一次
+		{
+			pDestDC->BitBlt(rcFull.left, rcFull.top, WIDTHOF(rcFull), HEIGHTOF(rcFull)
+				, pMemDC, rcFull.left, rcFull.top, SRCCOPY);
+		}
 
 		countLoop++;
 		Sleep(2);
@@ -3278,10 +3475,11 @@ void CGDIGUISystem::SetCallbackEvent(LPGDIGUIEVENTCALLBACK pevent)
 	pEventProc = pevent;
 }
 
-void CGDIGUISystem::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
+int CGDIGUISystem::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
 {
 	//byte LMBstate = (byte)lastLMBdown + (byte)(LMBDown << 1);
 	//lastLMBdown = LMBDown;
+	int retVal = 0;
 	bool controldown = false;//是否有控件按下
 	for (int i = 0; i < nControls; i++)
 	{
@@ -3326,9 +3524,9 @@ void CGDIGUISystem::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lPara
 				}
 				}*/
 
-				if (event)
+				if (event != GUI_EVENT_NULL)
 				{
-
+					retVal = 1;
 					//重绘(交给多线程)
 					/*if (controls[i]->type == GUI_CONTROL_BUTTON)
 					{
@@ -3342,6 +3540,8 @@ void CGDIGUISystem::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lPara
 			}
 		}
 	}
+
+	return retVal;
 }
 
 void CGDIGUISystem::HandleKeyboard(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -3378,7 +3578,17 @@ void CGDIGUISystem::HandleCMD(int ID, UINT cmd)
 
 void CGDIGUISystem::Invalidate()
 {
-	bInvalidate = true;
+	//bInvalidate = true;
+
+	//CDC *pMemDC = device->GetMemDC();
+	//RECT rcFull;
+	//bool res = device->GetRect(&rcFull);
+	//if (res && pMemDC != NULL)
+	//{
+	//	//默认背景
+	//	pMemDC->FillSolidRect(&rcFull, COLORGDI_DEFAULT);
+	//}
+
 	for (int i = 0; i < backdrop.GetSize(); i++)
 	{
 		backdrop[i]->Invalidate();
@@ -3397,10 +3607,12 @@ void CGDIGUISystem::Render()
 	// 逐个绘制控件
 	for (int i = 0; i < backdrop.GetSize(); i++)
 	{
+		//backdrop[i]->DisplayCycle(device);
 		backdrop[i]->Render(device);
 	}
 	for (int i = 0; i < nControls; i++)
 	{
+		//controls[i]->DisplayCycle(device);
 		controls[i]->Render(device);
 	}
 	QueryPerformanceCounter(&etime);
@@ -3684,19 +3896,19 @@ bool GDIGUIScrollBar::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	if (pDestDC == NULL || pMemDC == NULL/* || pMemDCBack == NULL*/)
+		return false;
 
 	// 清除背景
 	pMemDC->FillSolidRect(&rcBoundingBox, COLORGDI_DEFAULT);//清除背景
 
 															// 绘制贴图
 	if (picTrack)
-		picTrack->Show(pMemDC, posX, posY, ROUND_BYTE(alpha), false);
+		picTrack->Show(pMemDC, posX, posY, ROUNDF_BYTE(alpha), false);
 	if (!bShowThumb)
 	{
 		RECT rcInnerTrack = rcBoundingBox;
@@ -3704,11 +3916,11 @@ bool GDIGUIScrollBar::Render(LPGDIDevice dev)
 		pMemDC->FillSolidRect(&rcInnerTrack, RGB(165, 165, 166));//清除滑动轨道
 	}
 	if (picUpButton)
-		picUpButton->Show(pMemDC, posX, posY, ROUND_BYTE(alpha), false);
+		picUpButton->Show(pMemDC, posX, posY, ROUNDF_BYTE(alpha), false);
 	if (picDownButton)
-		picDownButton->Show(pMemDC, posX, posY + height - width, ROUND_BYTE(alpha), false);
+		picDownButton->Show(pMemDC, posX, posY + height - width, ROUNDF_BYTE(alpha), false);
 	if (picThumb && bShowThumb)
-		picThumb->Show(pMemDC, rcThumb.left, rcThumb.top, ROUND_BYTE(alpha), false);
+		picThumb->Show(pMemDC, rcThumb.left, rcThumb.top, ROUNDF_BYTE(alpha), false);
 
 	// 绘制文本
 	RenderText(pMemDC, textFormat);
@@ -3935,17 +4147,23 @@ bool GDIGUIComboBox::Render(LPGDIDevice dev)
 		return false;
 
 	if (!dev || dev->IsDCNull())
-	{
 		return false;
-	}
 
 	CDC *pDestDC = dev->GetDestDC();
 	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
 
 	CFont *pold = (CFont*)pMemDC->SelectObject(font);
 	pMemDC->SetTextColor(textColor);
 	pMemDC->FillSolidRect(&rcBoundingBox, COLORGDI_DEFAULT);//清除背景
 
+	byte curAlpha = (byte)alpha;
+	if (!bOpened && state != GUI_STATE_OVER)
+		curAlpha = (byte)(curAlpha*0.7f);
+	if (pic)
+		pic->Show(pMemDC, rcText.left, rcText.top, curAlpha, true, pMemDCBack);
 
 	INT8 iState = 0;
 
@@ -3979,11 +4197,13 @@ bool GDIGUIComboBox::Render(LPGDIDevice dev)
 	{
 		RECT rc = rcDropdown;
 		rc.right += nSBWidth;
-		pMemDC->FillSolidRect(&rc, COLORGDI_DEFAULT);//清除背景
+		//pMemDC->FillSolidRect(&rc, COLORGDI_DEFAULT);//清除背景
+		pMemDC->BitBlt(rc.left, rc.top, rc.right, rc.bottom
+			, pMemDCBack, rc.left, rc.top, SRCCOPY);
 	}
 	if (picDropDown && bOpened)
 	{
-		picDropDown->Show(pMemDC, rcDropdown.left, rcDropdown.top, ROUND_BYTE(alpha), false);
+		picDropDown->Show(pMemDC, rcDropdown.left, rcDropdown.top, ROUNDF_BYTE(alpha), true, pMemDCBack);
 	}
 
 	// Scroll bar
@@ -4083,11 +4303,8 @@ bool GDIGUIComboBox::Render(LPGDIDevice dev)
 	RECT rcWindow = rcButton;
 	OffsetRect(&rcWindow, nOffsetX, nOffsetY);
 	//m_pDialog->DrawSprite(pElement, &rcWindow, DXUT_FAR_BUTTON_DEPTH);
-	byte curAlpha = (byte)alpha;
-	if (!bOpened)
-		curAlpha = (byte)(curAlpha*0.6f);
 	if (picButton)
-		picButton->Show(pMemDC, rcButton.left, rcButton.top, curAlpha, false);
+		picButton->Show(pMemDC, rcButton.left, rcButton.top, curAlpha, true, pMemDCBack);
 
 	if (bOpened)
 		iState = /*DXUT_STATE_PRESSED*/1;
@@ -4101,8 +4318,6 @@ bool GDIGUIComboBox::Render(LPGDIDevice dev)
 	//pElement->FontColor.Blend(iState, fElapsedTime, fBlendRate);
 
 	//m_pDialog->DrawSprite(pElement, &m_rcText, DXUT_NEAR_BUTTON_DEPTH);
-	if (pic)
-		pic->Show(pMemDC, rcText.left, rcText.top, curAlpha, false);
 
 	if (iSelected >= 0 && iSelected < (int)items.GetSize())
 	{
@@ -4247,6 +4462,48 @@ int GDIGUIComboBox::FindItem(const WCHAR * strText, UINT iStart)
 	}
 
 	return -1;
+}
+
+GDIGUIEdit::GDIGUIEdit()
+{
+	type = GUI_CONTROL_EDIT;
+
+	textFormat = TEXTFORMAT_LEFT;
+}
+
+bool GDIGUIEdit::Render(LPGDIDevice dev)
+{
+	if (!bVisible)
+		return false;
+
+	if (!dev || dev->IsDCNull())
+		return false;
+
+	CDC *pDestDC = dev->GetDestDC();
+	CDC *pMemDC = dev->GetMemDC();
+	CDC *pMemDCBack = dev->GetMemDCBack();
+	if (pDestDC == NULL || pMemDC == NULL || pMemDCBack == NULL)
+		return false;
+
+	// 确定贴图
+
+	// 清除背景
+	RECT rcUnion;
+	UnionRect(&rcUnion, &rcBoundingBox, &rcText);//控件区域和文本区域并
+												 //pMemDC->FillSolidRect(&rcUnion, COLORGDI_DEFAULT);//清除背景
+
+												 // 绘制贴图
+	if (pic)
+		pic->Show(pMemDC, posX, posY, ROUNDF_BYTE(alpha), true, pMemDCBack);
+
+	// 绘制文本
+	RenderText(pMemDC, textFormat);
+
+	// 显示到目标
+	pDestDC->BitBlt(rcUnion.left, rcUnion.top, WIDTHOF(rcUnion), HEIGHTOF(rcUnion)
+		, pMemDC, rcUnion.left, rcUnion.top, SRCCOPY);
+
+	return true;
 }
 
 #endif // USE_GDIGUI

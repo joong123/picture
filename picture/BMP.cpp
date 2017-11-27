@@ -258,7 +258,7 @@ bool MYCALL1 BMP::RGB2HSV()
 			byte maxvalue = ppix[max];
 
 			ppix[0] = maxvalue;//v
-			ppix[1] = (maxvalue == 0 ? 0 : ROUND_BYTE(255.0f*(maxvalue - minvalue) / maxvalue));//s
+			ppix[1] = (maxvalue == 0 ? 0 : ROUNDF_BYTE(255.0f*(maxvalue - minvalue) / maxvalue));//s
 
 			if (maxvalue == minvalue)
 				ppix[2] = 0;
@@ -266,15 +266,15 @@ bool MYCALL1 BMP::RGB2HSV()
 			{
 				if (max == 2)
 				{
-					ppix[2] = ROUND_BYTE(255.0f * (60 * (g - b) / (maxvalue - minvalue)) / 360);
+					ppix[2] = ROUNDF_BYTE(255.0f * (60 * (g - b) / (maxvalue - minvalue)) / 360);
 				}
 				else if (max == 1)
 				{
-					ppix[2] = ROUND_BYTE(255.0f * (120 + 60 * (b - r) / (maxvalue - minvalue)) / 360);
+					ppix[2] = ROUNDF_BYTE(255.0f * (120 + 60 * (b - r) / (maxvalue - minvalue)) / 360);
 				}
 				else
 				{
-					ppix[2] = ROUND_BYTE(255.0f * (240 + 60 * (r - g) / (maxvalue - minvalue)) / 360);
+					ppix[2] = ROUNDF_BYTE(255.0f * (240 + 60 * (r - g) / (maxvalue - minvalue)) / 360);
 				}
 			}
 		}
@@ -318,7 +318,9 @@ SurferBase::SurferBase()
 	zoomH = 0;
 
 	ZEROPOINT(surfBase);
-	ZEROPOINT(basePoint);
+	ZEROPOINT(ptBase);
+	ptScaleX = 0.5;
+	ptScaleY = 0.5;
 
 	ZEROPOINT(surfSize);
 	bPicClipped = false;
@@ -330,7 +332,7 @@ void SurferBase::SurfAdjustZoom_DragPR(int wParam)
 	float adds = 0;
 
 	//已取消时间关联
-	adds = ZOOMFACTOR_DRAG*zoom;
+	adds = (float)(ZOOMFACTOR_DRAG*zoom);
 
 	//拖动倍率
 	adds *= wParam;
@@ -361,7 +363,7 @@ void SurferBase::SurfAdjustZoom_WheelPR(int wParam)
 	QueryPerformanceCounter(&wheeltick);
 
 	//变化量相关于时间和当前放大倍率
-	adds = (sqrtf(freq.QuadPart / (float)(wheeltick.QuadPart - lastwheeltick.QuadPart))
+	adds = (float)(sqrtf(freq.QuadPart / (float)(wheeltick.QuadPart - lastwheeltick.QuadPart))
 		*(ZOOMFACTOR_WHEEL*zoom));
 	lastwheeltick.QuadPart = wheeltick.QuadPart;
 
@@ -472,8 +474,8 @@ bool Surfer::BindDevice(LPDIRECT3DDEVICE9 device)
 	if(pDevice)
 		pDevice->AddRef();//增加引用计数
 
-	LPDIRECT3DSURFACE9 pSurf;
-	pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_LEFT, &pSurf);
+	//LPDIRECT3DSURFACE9 pSurf;
+	//pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_LEFT, &pSurf);
 	CalcBindState();
 
 	return pDevice != NULL;
@@ -579,7 +581,7 @@ void Surfer::SetInfoStr()
 	// buffer尺寸、surface尺寸
 	// 缩放倍率
 	// surface起始点
-	swprintf_s(subinfo, L"SURFACE: %d × %d     TIME: %.3fms (%S)\n\
+	StringCchPrintf(subinfo, 256, L"SURFACE: %d × %d     TIME: %.3fms (%S)\n\
 		ZOOM: %.4f\n\
 		BASE: %d, %d\n"
 		, surfSize.x, surfSize.y, renewTime*1000.0f, GetSampleSchemaStr()
@@ -591,25 +593,25 @@ void Surfer::SetInfoStr()
 	if (pBmp)
 	{
 		if (pBmp->isNotEmpty())
-			swprintf_s(subinfo, L"PIXEL: %d, %d\n", cursorPixel.x, cursorPixel.y);
+			StringCchPrintf(subinfo, 256, L"PIXEL: %d, %d\n", cursorPixel.x, cursorPixel.y);
 		else
-			swprintf_s(subinfo, L"PIXEL:-, -\n");
+			StringCchPrintf(subinfo, 256, L"PIXEL:-, -\n");
 	}
 	else
-		swprintf_s(subinfo, L"PIXEL:-, -\n");
+		StringCchPrintf(subinfo, 256, L"PIXEL:-, -\n");
 	wcscat_s(strSurfInfo, subinfo);
 
 	// 鼠标像素颜色、屏幕像素颜色、背景色
 	COLOR_F3 hsvc = RGB2HSV_F3(cursorColor);
 	if (bCursorOnPic)
-		swprintf_s(subinfo, L"COLOR: #%02X.%06X.ARGB\n\
+		StringCchPrintf(subinfo, 256, L"COLOR: #%02X.%06X.ARGB\n\
 			              %d, %d, %d, %d.ARGB\n\
 			              %.1f, %.2f, %.0f.HSV\n"
 			, (cursorColor >> 24), (cursorColor & 0xFFFFFF)
 			, (cursorColor >> 24), (cursorColor >> 16) & 0xFF, (cursorColor >> 8) & 0xFF, cursorColor & 0xFF
 			, hsvc.r, hsvc.g, hsvc.b);
 	else
-		swprintf_s(subinfo, L"COLOR: ??.??????.ARGB\n");
+		StringCchPrintf(subinfo, 256, L"COLOR: ??.??????.ARGB\n");
 	wcscat_s(strSurfInfo, subinfo);
 
 	// 附加信息
@@ -810,7 +812,7 @@ HRESULT PicPack::LoadFile(LPDIRECT3DDEVICE9 pDevice, WCHAR file[])
 	pBmp->SetAlpha(myPicInfo.channels == 4);//设置alpha
 
 	// 文件名
-	wcscpy_s(strFileName, file);
+	StringCchCopy(strFileName, MAX_PATH, file);
 
 	// 状态更新
 	bHasDirectory = true;
@@ -843,7 +845,7 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pDevice, WCHAR file[])
 	hr = D3DXSaveSurfaceToFile(file, D3DPicInfo.ImageFileFormat, tempsurf, NULL, NULL);//保存到文件
 
 	// 文件名
-	wcscpy_s(strFileName, file);
+	StringCchCopyW(strFileName, MAX_PATH, file);
 
 	// 状态更新
 	bSaved = true;
@@ -854,12 +856,12 @@ bool PicPack::SaveFile(LPDIRECT3DDEVICE9 pDevice, WCHAR file[])
 WCHAR * PicPack::GetPicInfoStrW()
 {
 	//图片尺寸、格式
-	swprintf_s(picInfoStr, _T("SIZE: %d × %d\n\
+	StringCchPrintf(picInfoStr, 256, L"SIZE: %d × %d\n\
 		FORMAT: %S\n\
 		FILE: %lld Bytes  [%.3fMB]\n\
 		DEPTH: %d\n\
 		CHANNEL: %d\n\
-		ALPHA: %d")
+		ALPHA: %d"
 		, pBmp->width, pBmp->height
 		, GetFMTStr(D3DPicInfo.Format).c_str()
 		, myPicInfo.bytecount, myPicInfo.bytecount / 1048576.0f

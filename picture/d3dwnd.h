@@ -87,6 +87,7 @@ public:
 		, WCHAR *lpMenuName = NULL
 		, WCHAR *szWindowClass = NULL
 		, D3DCOLOR BackgroundColor = D3DCOLOR_XRGB(250, 250, 250)
+		, HWND hWndParent = NULL
 	);
 	void SetHWND(HWND hWnd);
 	HWND GetHWND();

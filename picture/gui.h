@@ -55,19 +55,23 @@
 #define GDICOLORPART_BLUE(C)			((C >> 16) & 0xFF)
 #define COLORGDI_WHITE					0x00FFFFFF
 #define COLORGDI_BLACK					0x00000000
-#define COLORGDI_MIDGREY				0x00DDDDDD
+#define COLORGDI_MIDGREY				0x00CCCCCC
 #define COLORGDI_ORANGE					0x0000FFFF
 #define COLORGDI_MIDORANGE				0x0000BAF0
 #define COLORGDI_LAKEBLUE				0x00FF901E
 #define COLORGDI_BLUE					0x00FF0000
 #define COLORGDI_BLUE1					RGB(33, 22, 200)
+#define COLORGDI_BLUE2					RGB(80, 60, 240)
+#define COLORGDI_GREEN1					RGB(60, 230, 1)
+#define COLORGDI_GREEN2					0x0044BB66
+#define COLORGDI_GREEN3					0x00226633
 #define COLORGDI_LAKEGREEN				0x00A6FF34
 #define COLORGDI_GREY					0x00DCDCDC
 #define COLORGDI_LIGHTGREY				0x00F0F0F0
 #define COLORGDI_HEAVYGREY				0x00606060
 #define COLORGDI_DARKGREY				0x00202020
 #define COLORGDI_RED					0x000000FF
-#define COLORGDI_GREEN1					RGB(60, 230, 1)
+#define COLORGDI_RED2					0x003322AA
 
 #define COLORGDI_DEFAULT				0x00F0F0F0
 
@@ -104,10 +108,12 @@
 #define GUI_EVENT_LBUTTONDOWN			1	
 #define GUI_EVENT_LBUTTONUP				2	
 #define GUI_EVENT_LBUTTONCLICKED		GUI_EVENT_LBUTTONUP	
-#define GUI_EVENT_MOUSEENTER			3
-#define GUI_EVENT_MOUSELEAVE			4
-#define GUI_EVENT_MOUSEMOVE				5
-#define GUI_EVENT_MOUSEWHEEL			6
+#define GUI_EVENT_RBUTTONDOWN			3
+#define GUI_EVENT_RBUTTONUP				4
+#define GUI_EVENT_MOUSEENTER			5
+#define GUI_EVENT_MOUSELEAVE			6
+#define GUI_EVENT_MOUSEMOVE				7
+#define GUI_EVENT_MOUSEWHEEL			8
 #define GUI_EVENT_LBUTTONOUTUP			11
 // 上层事件（对下层的扩展、覆盖）
 #define GUI_EVENT_CMD					11
@@ -473,6 +479,7 @@ DECLARE_INTERFACE_(IGDIDevice, IUnknown)
 	STDMETHOD_(bool, IsDCNull)(THIS) PURE;
 	STDMETHOD_(CDC *, GetDestDC)(THIS) PURE;
 	STDMETHOD_(CDC *, GetMemDC)(THIS) PURE;
+	STDMETHOD_(CDC *, GetMemDCBack)(THIS) PURE;
 	STDMETHOD_(bool, GetRect)(THIS_ RECT *pRect) PURE;
 	STDMETHOD_(bool, Present)(THIS_ int x, int y, int w, int h, int sx, int sy) PURE;
 };
@@ -482,6 +489,7 @@ typedef struct IGDIDevice *LPGDIDevice, *PGDIDevice;
 class GDIDevice :public IGDIDevice {
 private:
 	memDCBMP *pmDB;	// 内存DC
+	memDCBMP *pmDBBack;	// 内存DC(背景)
 	CDC *pdevDC;	// 目标DC
 	RECT rcRedraw;
 
@@ -505,6 +513,10 @@ public:
 	CDC * __stdcall		GetMemDC()
 	{
 		return pmDB != NULL ? pmDB->pDC : NULL;
+	}
+	CDC * __stdcall		GetMemDCBack()
+	{
+		return pmDBBack != NULL ? pmDBBack->pDC : NULL;
 	}
 	bool __stdcall		GetRect(RECT *pRect)
 	{
@@ -533,7 +545,7 @@ public:
 				UnionRect(&rcRedraw, &rcRedraw, &rcNew);
 			}
 			//pdevDC->TransparentBlt();
-			//pdevDC->BitBlt(x, y, w, h, pmDB->pDC, sx, sy, SRCCOPY);
+			pdevDC->BitBlt(x, y, w, h, pmDB->pDC, sx, sy, SRCCOPY);
 			return true;
 		}
 
@@ -549,6 +561,7 @@ public:
 
 	memPic *pic;	// 贴图
 public:
+	int test;
 	GDIGUIControl();
 	virtual			~GDIGUIControl();
 	virtual bool	Release();
@@ -639,6 +652,18 @@ public:
 	virtual bool	Render(LPGDIDevice dev);
 };
 
+class GDIGUIEdit :public GDIGUIControl
+{
+public:
+public:
+	GDIGUIEdit();
+	//virtual			~GDIGUIEdit();
+	//virtual bool	Release();
+
+	virtual bool	Render(LPGDIDevice dev);
+};
+
+
 #define WAVE_STATE_STOPED	0
 #define WAVE_STATE_RUNNING	1
 #define WAVE_STATE_PAUSED	2
@@ -670,34 +695,43 @@ struct timeStamp {
 class GDIGUIWave :public GDIGUIControl
 {
 private:
-	byte waveState;
+	byte waveState;					// 状态
 
+									// 参数
+	float timeSpan;					// 波形框时间跨度
+	float ampSpan;					// 振幅基准
+	DWORD lineColor;				// 线条颜色
+	DWORD lineColorY;
+	DWORD lineColorZ;
+
+	// 样本
+	CGrowableArray <sample3D> samples;// 样本数组
+	CGrowableArray <timeStamp> times;// 峰值数组
+	float freq;						// 样本频率
+	int nHandled;					// 已经处理了多少样本（绘制结束即完成处理，已加入列表但没绘制算没处理）
+	int nRenderd;					// 已经绘制了多少样本
+	int nReview;					// 波形值查看，在列表中位置
+
+	memDCBMP *waveBuf;				// 波形绘图
+									// 辅助绘图
 	sample3D amp;					// 本次采样样本振幅
 	int lastX;						// 上一个采样样本横向位置（像素数）
 	float lastYx;					// 上一个采样样本振幅（像素高度）
 	float lastYy;					// 上一个采样样本振幅（像素高度）
 	float lastYz;					// 上一个采样样本振幅（像素高度）
 	int waveMoved;					// 波形总移动距离（像素数）
-	int curwavemoved;				// 本次波形移动了的距离
+	int newWaveMoved;				// 本次波形移动了的距离
+
+									// 计时
 	LARGE_INTEGER startTime;		// 起始采样时间
-	LARGE_INTEGER pauseTime;
+	LARGE_INTEGER pauseTime;		// 暂停时间（用户恢复暂停时更新起始时间）
+	LARGE_INTEGER curTime;			// 记录当前绘制时间
 	LONGLONG lastBeat;				// 心跳（用于计算样本频率）
-	LONGLONG secRec;				// 秒数记录（用于按秒操作）
-	int nHandled;					// 已经处理了多少样本（绘制结束即完成处理，已加入列表但没绘制算没处理）
-	int nRenderd;
+	LONGLONG secRec;				// 整数秒数记录（用于按秒操作）
+	double sec;						// 精确的秒数记录
 
-	CGrowableArray <sample3D> samples;// 样本数组
-	CGrowableArray <timeStamp> times;// 峰值数组
-	float timeSpan;					// 波形框时间跨度
-	float ampSpan;					// 振幅基准
-	float freq;						// 样本频率
-	DWORD lineColor;				// 线条颜色
-	DWORD lineColorY;
-	DWORD lineColorZ;
-
-	memDCBMP *waveBuf;				// 波形绘图
-
-	bool			SetStopBackground();
+	bool			SetEmptyBackground();//绘制停止状态的波形图
+	void			RestoreFlag();	//复位参数，一次采样结束，第二次开始时复位
 public:
 	GDIGUIWave();
 	virtual			~GDIGUIWave();
@@ -705,6 +739,7 @@ public:
 
 	void			PrepareWaveDC(CDC * pdc);
 
+	virtual byte	HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam);
 	virtual bool	DisplayCycle(LPGDIDevice dev);
 	virtual void	HandleCMD(UINT cmd);
 
@@ -725,14 +760,13 @@ public:
 		byte r = GDICOLORPART_RED(color);
 		byte g = GDICOLORPART_GREEN(color);
 		byte b = GDICOLORPART_BLUE(color);
-		lineColorY = RGB(b, r, g);
-		lineColorZ = RGB(g, r, b);
+		lineColorY = RGB(g, b, r);
+		lineColorZ = RGB(b, r, g);
 	}
 	DWORD			GetLineColor() const
 	{
 		return lineColor;
 	}
-	void			FlagRestore();//复位参数，一次采样结束，第二次开始时复位
 	void			Start();
 	void			Pause();
 	void			Resume();
@@ -873,15 +907,15 @@ public:
 	//HRESULT         SetSelectedByData(void* pData);
 
 	//自己加的
-	const RECT &GetTextRect() const
+	const RECT		&GetTextRect() const
 	{
 		return rcText;
 	}
-	const RECT &GetButtonRect() const
+	const RECT		&GetButtonRect() const
 	{
 		return rcButton;
 	}
-	const RECT &GetDropDownRect() const
+	const RECT		&GetDropDownRect() const
 	{
 		return rcDropdown;
 	}
@@ -1034,7 +1068,7 @@ public:
 	// 设置回调函数
 	// 事件处理
 	void			SetCallbackEvent(LPGDIGUIEVENTCALLBACK pevent);
-	void			HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam);
+	int				HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam);
 	void			HandleKeyboard(UINT uMsg, WPARAM wParam, LPARAM lParam);
 	void			HandleCMD(int ID, UINT cmd);
 

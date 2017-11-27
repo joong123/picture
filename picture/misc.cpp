@@ -509,6 +509,56 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //	*pPrior = *_ScriptString_pcOutChars(m_Analysis) - 1;
 //}
 
+BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
+{
+	WNDINFO* pInfo = (WNDINFO*)lParam;
+	DWORD dwProcessId = 0;
+	GetWindowThreadProcessId(hWnd, &dwProcessId);
+
+	if (dwProcessId == pInfo->dwPid)
+	{
+		pInfo->hWnd = hWnd;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+HWND GetHwndByProcessId(DWORD dwProcessId)
+{
+	WNDINFO info = { 0 };
+	info.hWnd = NULL;
+	info.dwPid = dwProcessId;
+	EnumWindows(EnumWindowsProc, (LPARAM)&info);
+
+	return info.hWnd;
+}
+
+HWND GetHwndByPid(DWORD dwProcessID)
+{
+	//返回Z序顶部的窗口句柄
+	HWND hWnd = ::GetTopWindow(0);
+
+	while (hWnd)
+	{
+		DWORD pid = 0;
+		//根据窗口句柄获取进程ID
+		DWORD dwTheardId = ::GetWindowThreadProcessId(hWnd, &pid);
+
+
+		if (dwTheardId != 0)
+		{
+			if (pid == dwProcessID)
+			{
+				return hWnd;
+			}
+		}
+		//返回z序中的前一个或后一个窗口的句柄
+		hWnd = ::GetNextWindow(hWnd, GW_HWNDNEXT);
+	}
+	return hWnd;
+}
+
 bool TimeString(WCHAR *dest, size_t size, double msec)
 {
 	if (dest == NULL || size <= 0)

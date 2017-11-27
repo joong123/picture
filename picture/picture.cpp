@@ -48,17 +48,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 
 	hWndMain = pD3DWnd->GetHWND();//存储主窗口句柄
-
-	// 启动界面
-	/*D3DWnd *startup = new D3DWnd();
-	HWND startwnd = NULL;
-	if (startup->D3DCreateWindow(L"", StartWndProc, 0
-		, 0, WS_OVERLAPPEDWINDOW, 0
-		, WINDOWPOSX_INIT + 280, WINDOWPOSY_INIT + 140, 240, 260
-		, 0, 0, 0, 0, 0x11D0BBFF))
+	if (hWndMain == NULL)
 	{
-		startwnd = startup->GetHWND();
-	}*/
+		return 0;
+	}
+
+	// 启动窗口
+	startup = new D3DWnd();
+	RECT rcMain;
+	GetWindowRect(hWndMain, &rcMain);
+	float fBias = 0.618f;
+	POINT ptMid = { (LONG)(rcMain.left + WIDTHOF(rcMain)*fBias)
+		, (LONG)(rcMain.top + HEIGHTOF(rcMain)*fBias) };
+	int iW = 240, iH = 220;
+	//if (startup->D3DCreateWindow(L"startUp", StartWndProc, 0
+	//	, CS_DROPSHADOW, WS_POPUP, 0
+	//	, ptMid.x - iW / 2, ptMid.y - iH / 2, iW, iH
+	//	, 0, 0, 0, 0, 0xFFD0BBFF))
+	//{
+	//	hWndStartup = startup->GetHWND();
+	//	//SetWindowPos(hWndStartup, HWND_NOTOPMOST,	0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	//}
 
 	// 初始化参数
 	Init();
@@ -69,9 +79,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	OnWininitFile(GetCommandLine());
 
 	// 销毁启动窗口
-	//if(startwnd)
-	//	SendMessage(startwnd, WM_CLOSE, 0, 0);
-	//delete startup;
+	/*if(hWndStartup)
+		SendMessage(hWndStartup, WM_CLOSE, 0, 0);*/
 
 	// 舍弃的方法
     //HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PICTURE));
@@ -82,11 +91,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// 循环参数初始化
 	time_t nowtime = 0, lasttime = 0;//计时
-	LARGE_INTEGER frequency, stime, etime;
+	LARGE_INTEGER frequency = { 0 }, stime = { 0 }, etime = { 0 };
 	QueryPerformanceFrequency(&frequency);
 
     // 主消息循环: 
 	timeBeginPeriod(1);//精度设置
+	bool bGotMsg;
 	MSG msg;
 	msg.message = WM_NULL;
 	PeekMessage(&msg, NULL, 0U, 0U, PM_NOREMOVE);
@@ -101,8 +111,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
+			//continue;//降低资源利用率(DXUT的CustomUI)会影响实时性（比如鼠标操作）
 		}
 
+		// Render a frame during idle time (no messages are waiting)
 		/********************* 发布消息后做的动作 *********************/
 		// 最小化状态拦截
 		if (bIconic)//ERROR 有时退出时会崩溃，指向这行！
@@ -183,14 +195,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 			// 计算fps
 			fpsCount++;
-			if (bFpsLimited)							//当前帧率
-			{
-				fps = testfps;
-			}
-			else
-			{
-				fps = (float)frequency.QuadPart / (etime.QuadPart - stime.QuadPart);
-			}
+			fps = (float)frequency.QuadPart / (etime.QuadPart - stime.QuadPart);
 			
 			frameTime = 1000.0f / fps;				//帧时间
 			if (avgFps < 0)							//平均帧率
@@ -269,40 +274,78 @@ LRESULT CALLBACK StartWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 {
 	switch (message)
 	{
-		POINT clienttl;
-		RECT crect, wrect;
+	POINT clienttl;
+	POINT ptCurNew, ptBias;
+	RECT rcClient, rcWindow;
 	case WM_CREATE:
-		/*GetWindowRect(hWnd, &wrect);
-		SetWindowPos(hWnd, HWND_TOPMOST
-			, wrect.left, wrect.top, wrect.right, wrect.bottom, 0);*/
-		break;
-	case WM_PAINT:
-		clienttl = { 0, 0 };
-		GetClientRect(hWnd, &crect);//得到client区域尺寸
-		ClientToScreen(hWnd, &clienttl);//获得client区域左上角的屏幕坐标
-										   //得到client真实屏幕区域
-		crect.left = clienttl.x;
-		crect.top = clienttl.y;
-		crect.right += clienttl.x;
-		crect.bottom += clienttl.y;
+		GetCursorPos(&ptCur);
 
+		clienttl = { 0, 0 };
+		GetClientRect(hWnd, &rcClient);//得到client区域尺寸
+		ClientToScreen(hWnd, &clienttl);//获得client区域左上角的屏幕坐标
+										//得到client真实屏幕区域
+		rcClient.left = clienttl.x;
+		rcClient.top = clienttl.y;
+		rcClient.right += clienttl.x;
+		rcClient.bottom += clienttl.y;
 		//得到窗口区域
-		GetWindowRect(hWnd, &wrect);
+		GetWindowRect(hWnd, &rcWindow);
 
 		HRGN hrgn;
 
 		RECT rgnrect;
-		rgnrect.left = crect.left - wrect.left;
+		rgnrect.left = rcClient.left - rcWindow.left;
 		rgnrect.top = 30;
-		rgnrect.right = WIDTHOF(wrect) - rgnrect.left + 1/*WIDTHOF(rcClient) + 9*/;
-		rgnrect.bottom = HEIGHTOF(wrect) - rgnrect.top + 1/*HEIGHTOF(rcClient) + 22*/;
+		rgnrect.right = WIDTHOF(rcWindow) - rgnrect.left + 1/*WIDTHOF(rcClient) + 9*/;
+		rgnrect.bottom = HEIGHTOF(rcWindow) - rgnrect.top + 1/*HEIGHTOF(rcClient) + 22*/;
 		hrgn = CreateRoundRectRgn(rgnrect.left, rgnrect.top
 			, rgnrect.right, rgnrect.bottom, 2, 2);//尺寸，要+1
 		SetWindowRgn(hWnd, hrgn, TRUE);
+		/*GetWindowRect(hWnd, &wrect);
+		SetWindowPos(hWnd, HWND_TOP
+			, wrect.left, wrect.top, wrect.right, wrect.bottom, 0);*/
+
+		bDrag = false;
+
+
+		::SetWindowLong(hWnd, GWL_EXSTYLE,
+			::GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+		SetLayeredWindowAttributes(hWnd, 0, 200, LWA_ALPHA);
 
 		break;
+	//case WM_PAINT:
+	//	break;
+	case WM_MOUSEMOVE:
+		GetCursorPos(&ptCurNew);
+		ptBias = MINUSPOINT(ptCurNew, ptCur);
+		if(bDrag)
+		{
+			GetWindowRect(hWnd, &rcWindow);
+			MoveWindow(hWnd, rcWindow.left + ptBias.x, rcWindow.top + ptBias.y
+				, WIDTHOF(rcWindow), HEIGHTOF(rcWindow), TRUE);
+			//PostMessageW(hWnd, WM_MOVE, 0, MAKELPARAM(ptBias.x, ptBias.y));//0x001D0003
+		}
+		ptCur = ptCurNew;
+		break;
 	case WM_LBUTTONDOWN:
-		PostMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+		bDrag = true;
+		SetCapture(hWnd);
+		GetCursorPos(&ptCur);
+		//PostMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+		break;
+	case WM_LBUTTONUP:
+		if (bDrag)
+		{
+			bDrag = false;
+			ReleaseCapture();
+		}
+		break;
+	case WM_KILLFOCUS:
+		if (bDrag)
+		{
+			bDrag = false;
+			ReleaseCapture();
+		}
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
@@ -313,7 +356,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UINT uFileNum;
 
-	if (!(message == WM_MOUSEMOVE && (bOnDrag || bOnDragzoom)))
+	if (g_gui != NULL && !(message == WM_MOUSEMOVE && (bOnDrag || bOnDragzoom)))
 		g_gui->MsgProc(hWnd, message, wParam, lParam);
 
     switch (message)
@@ -335,7 +378,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				OpenFileWin();
 				break;
 			case IDM_SAVE:
-				if(pLivePicpack)
+				if (pLivePicpack != NULL)
 					SaveFileWin(pLivePicpack->GetFileName());
 				break;
 			case IDM_CLEAR:
@@ -445,7 +488,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	//	WM_SIZE	- 窗口拉伸，需要高效
 	case WM_SIZE:
-		bIconic = IsIconic(hWndMain) > 0;
+		bIconic = IsIconic(hWnd) > 0;
 		if (!bIconic)
 		{
 			GetCursorPos(&cursor);//size时不进入主循环，需获取鼠标位置
@@ -498,7 +541,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//	}
 	//	else
 	//	{
-	//		PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTCAPTION, 0);//双击移动窗口
+	//		PostMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);//双击移动窗口
 	//	}
 	//	break;
 	//	WM_LBUTTONDOWN	- 鼠标左键按下
@@ -560,7 +603,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_NCLBUTTONDOWN:
 		DefWindowProc(hWnd, message, wParam, lParam); 
 		//防止发送NCLBUTTONDOWN后鼠标抬起不响应
-		PostMessage(hWndMain, WM_LBUTTONUP, GetSizeType(cursor), MAKELPARAM(cursor.x, cursor.y));
+		PostMessage(hWnd, WM_LBUTTONUP, GetSizeType(cursor), MAKELPARAM(cursor.x, cursor.y));
 		break;
 	/*case WM_SYSCOMMAND:
 		switch (wParam & 0xFFF0)
@@ -593,7 +636,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_MOUSEWHEELEND:
 		if (bNeedForceRenew/* && !bOnDrag && !bOnZoom && !bOnDragzoom && !bOnSize*/)
-			PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+			PostMessage(hWnd, WM_SURFFORCERENEW, 0, 1);
 		break;
 	//case WM_SIZEEND:
 	//	OnWinChange();//更新窗口区域，如果改为size结束动作时做，TODO：设置另一窗口区域信息实时更新
@@ -616,7 +659,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			//处理没有更新的Surface
 			if (bNeedForceRenew)
-				PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+				PostMessage(hWnd, WM_SURFFORCERENEW, 0, 1);
 
 			//窗口失去焦点，清除标志
 			ClearFlag();
@@ -640,6 +683,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_TOGGLEFULLSCREEN:
 		FullScreen_Windowed(!bWindowedFullscreen);
+		break;
+	/*case WM_CREATE:
+		break;*/
+	case WM_CLOSE:
+		if (hWndAid)
+		{
+			PostMessage(hWndAid, WM_CLOSE, 0, 1);
+			PostMessage(hWndAid, WM_CLOSE, 0, 1);
+		}
+		return DefWindowProc(hWnd, message, wParam, lParam);
 		break;
 	//	WM_DESTROY	- 窗口关闭
 	case WM_DESTROY:
@@ -912,12 +965,14 @@ bool MYCALL1 D3DInit()
 
 	float bX = 6, bY = 6, bW = 58, bH = 20;
 	float bVM = 23;
-	g_gui->AddButton(BUTTON_ID_1, bX, bY, bW, bH, L"file");
+	g_gui->AddButton(BUTTON_ID_OPEN, bX, bY, bW, bH, L"file");
 	bY += bVM;
-	g_gui->AddButton(BUTTON_ID_2, bX, bY, bW, bH, L"save");
-	g_gui->AddButton(BUTTON_ID_3, bX, 50, bW, bH, L"full", 0xEEAAEEFF, 0, GUI_WINDOCK_RIGHT);
-	g_gui->AddEdit(INPUT_IN_1, 0, 18.0f, 0, 20.0f, CMDRECT_COLOR_USING, COLOR_CMD_INIT, fontID1, GUI_WINDOCK_BOTTOMHSPAN);
-	g_gui->HideControl(INPUT_IN_1);
+	g_gui->AddButton(BUTTON_ID_SAVE, bX, bY, bW, bH, L"save");
+	bY += bVM;
+	g_gui->AddButton(BUTTON_ID_AID, bX, bY, bW, bH, L"aid");
+	g_gui->AddButton(BUTTON_ID_FULLSCREEN, bX, 50, bW, bH, L"full", 0xEEAAEEFF, 0, GUI_WINDOCK_RIGHT);
+	g_gui->AddEdit(INPUT_IN_CMD, 0, 18.0f, 0, 20.0f, CMDRECT_COLOR_USING, COLOR_CMD_INIT, fontID1, GUI_WINDOCK_BOTTOMHSPAN);
+	g_gui->HideControl(INPUT_IN_CMD);
 	g_gui->AddBackdrop(L"test.jpg", 0.1f, 0.3f, 0.2f, 0.2f, GUI_WINDOCK_SCALE);
 
 	return true;
@@ -1171,7 +1226,7 @@ void SetPicInfo()
 {
 	if (pLivePicpack)
 	{
-		wcscpy_s(picInfoStr, pLivePicpack->GetPicInfoStrW());// 图片信息字符串更新
+		StringCchCopy(picInfoStr, 256, pLivePicpack->GetPicInfoStrW());// 图片信息字符串更新
 		SetWindowTextW(hWndMain, pLivePicpack->GetFileName());// 窗口标题
 	}
 	else
@@ -1209,8 +1264,8 @@ void PicClipWindow()
 	surfBase.y = -surfBase.y;
 	SF_SRFR(surfer.OnMove_Custom(surfBase));
 
-	rcWnd.right = rcWnd.left + surfer.GetZoomWidth() + WinDiffW;
-	rcWnd.bottom = rcWnd.top + surfer.GetZoomHeight() + WinDiffH;
+	rcWnd.right = rcWnd.left + (LONG)surfer.GetZoomWidth() + WinDiffW;
+	rcWnd.bottom = rcWnd.top + (LONG)surfer.GetZoomHeight() + WinDiffH;
 	SetWindowPos(hWndMain, HWND_TOP, rcWnd.left, rcWnd.top
 		, rcWnd.right - rcWnd.left, rcWnd.bottom - rcWnd.top
 		, 0);
@@ -1430,13 +1485,14 @@ void SaveFileWin(WCHAR file[])
 	OPENFILENAME svfn;
 	WCHAR savefilename[MAX_PATH] = { 0 };//存放文件名 
 	if(file)
-		wcscpy_s(savefilename, file);
+		StringCchCopy(savefilename, MAX_PATH, file);
 
 	// 初始化     
 	ZeroMemory(&svfn, sizeof(OPENFILENAME));
 	svfn.lStructSize = sizeof(OPENFILENAME);//结构体大小
 	svfn.lpstrFilter = L"所有文件\0*.*\0bmp文件\0*.bmp\0png文件\0*.png\0jpg文件\0*.jpg\0";//设置过滤   
 	svfn.nFilterIndex = 1;//默认过滤器索引
+	
 	WCHAR *ftype = wcsrchr(savefilename, L'.');
 	if (ftype)
 	{
@@ -1451,7 +1507,7 @@ void SaveFileWin(WCHAR file[])
 	svfn.lpstrFile = savefilename;
 	//svfn.lpstrFile[0] = '\0';
 	svfn.nMaxFile = sizeof(savefilename);
-	svfn.Flags = OFN_OVERWRITEPROMPT ;//标志位:覆盖提醒   OFN_SHOWHELP？
+	svfn.Flags = OFN_OVERWRITEPROMPT ;//标志位:覆盖提醒
 	svfn.hwndOwner = hWndMain;//模态
 	//svfn.lpstrInitialDir = NULL;     
 	// 显示对话框让用户选择文件     
@@ -1461,22 +1517,13 @@ void SaveFileWin(WCHAR file[])
 		if (!ftype)
 		{
 			if (svfn.nFilterIndex == 2)
-				wcscat_s(savefilename, L".bmp");
+				StringCchCat(savefilename, MAX_PATH, L".bmp");
 			else if (svfn.nFilterIndex == 3)
-				wcscat_s(savefilename, L".png");
+				StringCchCat(savefilename, MAX_PATH, L".png");
 			else if (svfn.nFilterIndex == 4)
-				wcscat_s(savefilename, L".jpg");
+				StringCchCat(savefilename, MAX_PATH, L".jpg");
 		}
-		//选中文件后操作
-		//已设置OFN_OVERWRITEPROMPT！
-		//if (_waccess(savefilename, 0) == 0)//判断文件存在
-		//{
-		//	if (IDYES == MessageBoxW(hWndMain, L"是否覆盖？", L"文件已存在", MB_YESNO | MB_APPLMODAL))
-		//		OnSaveFile(savefilename);
-		//	else
-		//		;
-		//}
-		//else
+		
 		SaveFile(savefilename);
 	}
 }
@@ -1497,7 +1544,7 @@ bool SaveFile(WCHAR file[])
 	{
 		SetWindowTextW(hWndMain, file);//窗口标题
 
-		wcscpy_s(picInfoStr, pLivePicpack->GetPicInfoStrW());
+		StringCchCopy(picInfoStr, 256, pLivePicpack->GetPicInfoStrW());
 
 		return true;
 	}
@@ -1602,15 +1649,15 @@ void MYCALL1 EndDragZoomPic()
 inline void MYCALL1 EnterCMDMode()
 {
 	mode = MODE_CMD;
-	g_gui->ShowControl(INPUT_IN_1);
-	g_gui->SetFocus(INPUT_IN_1);
+	g_gui->ShowControl(INPUT_IN_CMD);
+	g_gui->SetFocus(INPUT_IN_CMD);
 }
 
 inline void MYCALL1 ExitCMDMode()
 {
 	mode = MODE_PIC;
-	g_gui->SetControlText(INPUT_IN_1, L"");
-	g_gui->HideControl(INPUT_IN_1);
+	g_gui->SetControlText(INPUT_IN_CMD, L"");
+	g_gui->HideControl(INPUT_IN_CMD);
 }
 
 void MYCALL1 PicFitWnd()
@@ -1634,7 +1681,10 @@ void MYCALL1 PicFitWnd()
 
 void PicDock()
 {
-	SF_SRFR(surfer.OnMove_Custom(surfer.GetBase()));
+	POINT offBase = surfer.GetBase();
+	offBase.x = -offBase.x;
+	offBase.y = -offBase.y;
+	SF_SRFR(surfer.OnMove_Custom(offBase));
 
 	surfer.GetCurInfo(&cursor, &rcClient);
 }
@@ -1693,7 +1743,7 @@ bool FullScreen_Windowed(bool tofull, bool restore)
 			, fullScreenRect.right, fullScreenRect.bottom + 8
 			, SWP_FRAMECHANGED);//+8
 
-		g_gui->SetControlText(BUTTON_ID_3, L"small");
+		g_gui->SetControlText(BUTTON_ID_FULLSCREEN, L"small");
 	}
 	else// 取消全屏
 	{
@@ -1719,7 +1769,7 @@ bool FullScreen_Windowed(bool tofull, bool restore)
 				, WIDTHOF(rcOriginalWnd), HEIGHTOF(rcOriginalWnd)
 				, SWP_FRAMECHANGED);
 		}
-		g_gui->SetControlText(BUTTON_ID_3, L"full");
+		g_gui->SetControlText(BUTTON_ID_FULLSCREEN, L"full");
 	}
 
 	return true;
@@ -1797,6 +1847,7 @@ inline void MYCALL1 SetRenderState()
 	mainDevice->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);//默认D3DMCS_COLOR1
 	mainDevice->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
 
+	mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
 	mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 	//mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
 	mainDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//D3DCULL_NONE,D3DCULL_CCW
@@ -1809,7 +1860,7 @@ inline void SetView()
 	{
 		D3DXVECTOR3 eye;
 		D3DXVECTOR3 at;
-		float eyeradius = 40.0f;
+		float eyeradius = 60.0f;//40.0f
 		eye = D3DXVECTOR3(0.0f, -eyeradius, 0.0f);
 		at = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
 		D3DXMATRIXA16 matView;
@@ -1856,15 +1907,17 @@ bool InfoRender()
 	WCHAR infowstr[512] = { 0 };
 
 	// 图片状态信息显示
-	swprintf_s(infowstr, L"%d/%d", picList.GetCurPos(), picList.GetCount());
-	pFontPicState->DrawTextW(NULL, infowstr, -1, &rcPicState, DT_RIGHT | DT_NOCLIP, COLOR_TEXT4);
+	StringCchPrintfW(infowstr, 512, L"%d/%d", picList.GetCurPos(), picList.GetCount());
+	if (pFontPicState != NULL)
+		pFontPicState->DrawTextW(NULL, infowstr, -1, &rcPicState, DT_RIGHT | DT_NOCLIP, COLOR_TEXT4);
 
 	// 第1部分信息显示（图片信息）
 	// d3dfont1->DrawTextW(100, 200, COLOR_TEXT1, infowstr0, 0);//测试高速字体绘制
-	pFontPic->DrawTextW(NULL, picInfoStr, -1, &rcPic, DT_LEFT | DT_NOCLIP, COLOR_TEXT1);
+	if (pFontPic != NULL)
+		pFontPic->DrawTextW(NULL, picInfoStr, -1, &rcPic, DT_LEFT | DT_NOCLIP, COLOR_TEXT1);
 
 	// 窗口信息 & surfer信息
-	swprintf_s(infowstr, L"MODE: %d\n\
+	StringCchPrintfW(infowstr, 521, L"MODE: %d\n\
 		FPS: %.2f/%.2f (%.2f)  %.3fms   %lld\n\
 		MEM: %.1fMB,  %.1fMB\n\
 		BUF: %d × %d\n\
@@ -1878,9 +1931,10 @@ bool InfoRender()
 		, cursor.x - rcClient.left, cursor.y - rcClient.top
 		, procTime
 		, pD3DWnd->GetMultiSample());
-	wcscat_s(infowstr, L"   -    -    -    -   \n");
-	wcscat_s(infowstr, surfer.GetInfoStr());
-	pFontPic->DrawTextW(NULL, infowstr, -1, &rcSurface, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
+	StringCchCat(infowstr, 512, L"   -    -    -    -   \n");
+	StringCchCat(infowstr, 512, surfer.GetInfoStr());
+	if (pFontPic != NULL)
+		pFontPic->DrawTextW(NULL, infowstr, -1, &rcSurface, DT_LEFT | DT_NOCLIP, COLOR_TEXT1 );
 	//pFontPic->PreloadText();
 
 	// 附加信息
@@ -1895,7 +1949,7 @@ bool InfoRender()
 	if (bFlagsShow)
 	{
 		const WCHAR yesno2[2] = { L'×', L'●' };//'√'
-		swprintf_s(infowstr,
+		StringCchPrintfW(infowstr, 512,
 			L"PIC:%lc\
 		  SURF:%lc\
 		  ZOOM:%lc\
@@ -1915,7 +1969,8 @@ bool InfoRender()
 			, yesno2[surfer.bOutClient], yesno2[bSurfRenew]);
 
 		// 第3部分信息显示
-		pFontFlags->DrawTextW(NULL, infowstr, -1, &rcFlag
+		if (pFontFlags != NULL)
+			pFontFlags->DrawTextW(NULL, infowstr, -1, &rcFlag
 			, DT_LEFT | DT_TOP | DT_NOCLIP, COLOR_TEXT3);
 	}
 
@@ -1926,13 +1981,18 @@ void MYCALL1 Render()
 {
 	static HRESULT hr;
 
-	mainDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, BackgroundColor, 1.0f, 0);
-	mainDevice->BeginScene();
+	if (mainDevice == NULL)
+		return;
 
-	g_gui->RenderBack();
+	mainDevice->Clear(0, NULL, D3DCLEAR_TARGET/* | D3DCLEAR_ZBUFFER*/, BackgroundColor, 1.0f, 0);
+	mainDevice->BeginScene();
+	//Sleep(1);
+
+	if(g_gui != NULL)
+		g_gui->RenderBack();
 
 	// 装饰绘制
-	if (decorate)
+	/*if (decorate)
 	{
 		SetView();
 		mainDevice->SetMaterial(&material);
@@ -1941,8 +2001,8 @@ void MYCALL1 Render()
 		mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
 		mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 		decorate->DrawSubset(0);
-	}
-	mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+		mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+	}*/
 
 	// 图片绘制
 	hr = surfer.Render();
@@ -1951,7 +2011,8 @@ void MYCALL1 Render()
 		InfoRender();
 
 	// D3DGUI
-	g_gui->Render();//D3DBLEND_INVSRCCOLOR,D3DBLEND_INVSRCCOLOR;D3DBLEND_ZERO,D3DBLEND_INVDESTCOLOR
+	if (g_gui != NULL)
+		g_gui->Render();//D3DBLEND_INVSRCCOLOR,D3DBLEND_INVSRCCOLOR;D3DBLEND_ZERO,D3DBLEND_INVDESTCOLOR
 
 	// 颜色块
 	/*if (colorblockon && colorblock)
@@ -1981,7 +2042,7 @@ void MYCALL1 Render()
 
 bool ResetDevice()
 {
-	if (!mainDevice)
+	if (mainDevice == NULL)
 		return false; 
 
 	// 修改device长宽
@@ -2047,28 +2108,73 @@ inline void PostResetDevice()
 }
 
 void CALLBACK GUICallback(int ID, WPARAM wp, LPARAM lp)
-{
+{ 
 	switch (ID)
 	{
-	case BUTTON_ID_1:
+	case BUTTON_ID_OPEN:
 		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_COMMAND, IDM_OPEN, 0);
 		}
 		break;
-	case BUTTON_ID_2:
+	case BUTTON_ID_SAVE:
 		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_COMMAND, IDM_SAVE, 0);
 		}
 		break;
-	case BUTTON_ID_3:
+	case BUTTON_ID_AID:
+		if (wp == GUI_EVENT_LBUTTONCLICKED)
+		{
+			//memset(&si, 0, sizeof(si));
+			//si.cb = sizeof(STARTUPINFO);
+			//si.dwFlags = STARTF_USESHOWWINDOW;
+			//si.wShowWindow = SW_SHOW;//SW_HIDE隐藏窗口  
+
+			//WCHAR chCommandLine[MAX_PATH];
+			//StringCchCopy(chCommandLine, MAX_PATH, L".\\picture.exe");
+
+			//BOOL ret = CreateProcessW(NULL, chCommandLine, NULL, NULL, FALSE
+			//	, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+			//int nError = GetLastError();
+
+			//if (ret)
+			//{
+			//	hWndAid = GetHwndByPid(pi.dwProcessId);
+			//	hWndAid = GetHwndByProcessId(pi.dwProcessId);
+			//	//MessageBox(hWndMain, L"aid succeed", L"aid result", 0);
+			//}
+			//else
+			//{
+			//	WCHAR strInfo[64];
+			//	StringCchPrintf(strInfo, 64, L"创建进程失败-%d", nError);
+			//	MessageBox(hWndMain, strInfo, L"aid result", 0);
+			//}RECT rcMain;
+
+			RECT rcMain;
+			GetWindowRect(hWndMain, &rcMain);
+			float fBias = 0.618f;
+			POINT ptMid = { (LONG)(rcMain.left + WIDTHOF(rcMain)*fBias)
+				, (LONG)(rcMain.top + HEIGHTOF(rcMain)*fBias) };
+			int iW = 240, iH = 220;
+			if (startup->D3DCreateWindow(L"startUp", StartWndProc, 0
+				, CS_DROPSHADOW, WS_POPUP, 0
+				, ptMid.x - iW / 2, ptMid.y - iH / 2, iW, iH
+				, 0, 0, 0, 0, 0xFFD0BBFF))
+			{
+				hWndStartup = startup->GetHWND();
+				//SetWindowPos(hWndStartup, HWND_NOTOPMOST,	0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+			}
+			DoModal(&hWndStartup, hWndMain);
+		}
+		break;
+	case BUTTON_ID_FULLSCREEN:
 		if (wp == GUI_EVENT_LBUTTONCLICKED)
 		{
 			PostMessage(hWndMain, WM_TOGGLEFULLSCREEN, 0, 1);
 		}
 		break;
-	case INPUT_IN_1:
+	case INPUT_IN_CMD:
 		if (wp == GUI_EVENT_CMD)
 			CMDProc((WCHAR*)lp);
 		break;

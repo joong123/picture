@@ -12,8 +12,14 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 	, HICON hIcon, HICON hIconsm
 	, WCHAR *lpMenuName
 	, WCHAR *szWindowClass
-	, D3DCOLOR BackgroundColor)
+	, D3DCOLOR BackgroundColor
+	, HWND hWndParent)
 {
+	if (hWnd != NULL && IsWindow(hWnd))
+	{
+		return false;
+	}
+
 	if (lpWindowName == NULL)
 		lpWindowName = L"UNNAME";
 
@@ -40,7 +46,7 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 	if (hIconsm == NULL)
 		hIconsm = ExtractIcon(hInstance, szExePath, 1);
 
-	HBRUSH hb = CreateSolidBrush(RGB(BackgroundColor>>16, (BackgroundColor>>8)&0xFF, BackgroundColor & 0xFF));
+	HBRUSH hb = CreateSolidBrush(RGB((BackgroundColor>>16) & 0xFF, (BackgroundColor>>8) & 0xFF, BackgroundColor & 0xFF));
 
 	WNDCLASSEXW wcex;
 
@@ -64,14 +70,15 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 		DWORD dwError = GetLastError();
 		if (dwError != ERROR_CLASS_ALREADY_EXISTS)
 		{
-			MessageBox(NULL, L"RegisterClass Failed in D3DWnd::D3DCreateWindow!", L"ERROR", MB_OK | MB_APPLMODAL);
+			MessageBox(NULL, L"RegisterClass Failed in D3DWnd::D3DCreateWindow!", L"ERROR"
+				, MB_OK | MB_APPLMODAL);
+			return false;
 		}
-		return false;
 	}
 
 	hWnd = CreateWindowExW(ExStyle, szWindowClass, lpWindowName, Style,
 		x, y, width, height
-		, nullptr, nullptr, hInstance, nullptr);
+		, hWndParent, nullptr, hInstance, nullptr);
 
 	if (!hWnd)
 	{
@@ -144,7 +151,7 @@ bool D3DWnd::CreateDevice(D3DFORMAT textFormat, UINT backbuffercount)
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	d3dpp.hDeviceWindow = hWnd;
 	d3dpp.Windowed = TRUE;
-	d3dpp.EnableAutoDepthStencil = TRUE;//深度缓冲
+	d3dpp.EnableAutoDepthStencil = FALSE;//深度缓冲
 	d3dpp.AutoDepthStencilFormat = D3DFMT_D24X8;//加速用D3DFMT_D24S8不用D3DFMT_D16
 	d3dpp.Flags = 0;//允许backbuffer lockrect:D3DPRESENTFLAG_LOCKABLE_BACKBUFFER
 	d3dpp.FullScreen_RefreshRateInHz = 0;
