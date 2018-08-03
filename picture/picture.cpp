@@ -11,7 +11,6 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // 主窗口类名
 // 此代码模块中包含的函数的前向声明: 
 //ATOM                MyRegisterClass(HINSTANCE hInstance);
 //BOOL                InitInstance(HINSTANCE, int);
-LRESULT CALLBACK    StartWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
@@ -49,18 +48,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	hWndMain = pD3DWnd->GetHWND();//存储主窗口句柄
 	if (hWndMain == NULL)
-	{
 		return 0;
-	}
 
 	// 启动窗口
-	startup = new D3DWnd();
-	RECT rcMain;
-	GetWindowRect(hWndMain, &rcMain);
-	float fBias = 0.618f;
-	POINT ptMid = { (LONG)(rcMain.left + WIDTHOF(rcMain)*fBias)
-		, (LONG)(rcMain.top + HEIGHTOF(rcMain)*fBias) };
-	int iW = 240, iH = 220;
+	//startup = new D3DWnd();
+	//RECT rcMain;
+	//GetWindowRect(hWndMain, &rcMain);
+	//float fBias = 0.618f;
+	//POINT ptMid = { (LONG)(rcMain.left + WIDTHOF(rcMain)*fBias)
+	//	, (LONG)(rcMain.top + HEIGHTOF(rcMain)*fBias) };
+	//int iW = 240, iH = 220;
 	//if (startup->D3DCreateWindow(L"startUp", StartWndProc, 0
 	//	, CS_DROPSHADOW, WS_POPUP, 0
 	//	, ptMid.x - iW / 2, ptMid.y - iH / 2, iW, iH
@@ -76,7 +73,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	//TimerID_main = timeSetEvent(16, 0, TimerProc, 0, TIME_PERIODIC);//多媒体定时器
 
 	// 初始窗口启动参数
-	OnWininitFile(GetCommandLine());
+	OnWinInitFile(GetCommandLine());
 
 	// 销毁启动窗口
 	/*if(hWndStartup)
@@ -96,32 +93,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // 主消息循环: 
 	timeBeginPeriod(1);//精度设置
-	bool bGotMsg;
 	MSG msg;
 	msg.message = WM_NULL;
 	PeekMessage(&msg, NULL, 0U, 0U, PM_NOREMOVE);
 	while (msg.message != WM_QUIT)
 	{
-		/********************* 发布消息前做的动作 *********************/
-		// 更新鼠标坐标,在发布消息前更新鼠标位置，防止消息处理函数中数据错误(图片拖动问题)
-		GetCursorPos(&cursor);
-
 		// 消息
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
-			//continue;//降低资源利用率(DXUT的CustomUI)会影响实时性（比如鼠标操作）
 		}
 
-		// Render a frame during idle time (no messages are waiting)
-		/********************* 发布消息后做的动作 *********************/
-		// 最小化状态拦截
-		if (bIconic)//ERROR 有时退出时会崩溃，指向这行！
-		{
-			Sleep(ICONIC_SLEEP);//最小化状态降低资源消耗
-			continue;
-		}
+		// ERROR 有时退出时会崩溃!
 
 		// 帧率限制
 		QueryPerformanceCounter(&etime);
@@ -140,9 +124,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					continue;
 				}
 			}
-			else//静止状态，低帧率刷新界面
+			else// 静止状态，低帧率刷新界面
 			{
-				if (testfps > staticFps*1.05f)// *1.05控制帧率准确度
+				if (testfps > staticFps)
 				{
 					Sleep(1);
 					continue;
@@ -156,31 +140,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		// 更新延迟的标志
 		DelayFlag();
-
-		//动态调整帧率限制
-		/*if (bFpsLimited)
-		{
-			if (bDragging || bOnZoom || bDragzooming)
-			{
-				if (testfps < FPS_ERROR_DOWN)
-				{
-					normalFps += 0.2f;
-					normalFrameTime = 1000.0f / normalFps;
-				}
-				else if (testfps > FPS_ERROR_UP)
-				{
-					if (normalFps > 0)
-						normalFps -= 0.2f;
-					normalFrameTime = 1000.0f / normalFps;
-				}
-				else
-				{
-					if (normalFps > NORMAL_FPS)
-						normalFps -= 0.2f;
-					normalFrameTime = 1000.0f / normalFps;
-				}
-			}
-		}*/
 
 		// 每秒执行(帧率等)
 		if (nowtime != lasttime)
@@ -270,93 +229,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 //
 //   return TRUE;
 //}
-LRESULT CALLBACK StartWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	POINT clienttl;
-	POINT ptCurNew, ptBias;
-	RECT rcClient, rcWindow;
-	case WM_CREATE:
-		GetCursorPos(&ptCur);
-
-		clienttl = { 0, 0 };
-		GetClientRect(hWnd, &rcClient);//得到client区域尺寸
-		ClientToScreen(hWnd, &clienttl);//获得client区域左上角的屏幕坐标
-										//得到client真实屏幕区域
-		rcClient.left = clienttl.x;
-		rcClient.top = clienttl.y;
-		rcClient.right += clienttl.x;
-		rcClient.bottom += clienttl.y;
-		//得到窗口区域
-		GetWindowRect(hWnd, &rcWindow);
-
-		HRGN hrgn;
-
-		RECT rgnrect;
-		rgnrect.left = rcClient.left - rcWindow.left;
-		rgnrect.top = 30;
-		rgnrect.right = WIDTHOF(rcWindow) - rgnrect.left + 1/*WIDTHOF(rcClient) + 9*/;
-		rgnrect.bottom = HEIGHTOF(rcWindow) - rgnrect.top + 1/*HEIGHTOF(rcClient) + 22*/;
-		hrgn = CreateRoundRectRgn(rgnrect.left, rgnrect.top
-			, rgnrect.right, rgnrect.bottom, 2, 2);//尺寸，要+1
-		SetWindowRgn(hWnd, hrgn, TRUE);
-		/*GetWindowRect(hWnd, &wrect);
-		SetWindowPos(hWnd, HWND_TOP
-			, wrect.left, wrect.top, wrect.right, wrect.bottom, 0);*/
-
-		bDrag = false;
-
-
-		::SetWindowLong(hWnd, GWL_EXSTYLE,
-			::GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-		SetLayeredWindowAttributes(hWnd, 0, 200, LWA_ALPHA);
-
-		break;
-	//case WM_PAINT:
-	//	break;
-	case WM_MOUSEMOVE:
-		GetCursorPos(&ptCurNew);
-		ptBias = MINUSPOINT(ptCurNew, ptCur);
-		if(bDrag)
-		{
-			GetWindowRect(hWnd, &rcWindow);
-			MoveWindow(hWnd, rcWindow.left + ptBias.x, rcWindow.top + ptBias.y
-				, WIDTHOF(rcWindow), HEIGHTOF(rcWindow), TRUE);
-			//PostMessageW(hWnd, WM_MOVE, 0, MAKELPARAM(ptBias.x, ptBias.y));//0x001D0003
-		}
-		ptCur = ptCurNew;
-		break;
-	case WM_LBUTTONDOWN:
-		bDrag = true;
-		SetCapture(hWnd);
-		GetCursorPos(&ptCur);
-		//PostMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-		break;
-	case WM_LBUTTONUP:
-		if (bDrag)
-		{
-			bDrag = false;
-			ReleaseCapture();
-		}
-		break;
-	case WM_KILLFOCUS:
-		if (bDrag)
-		{
-			bDrag = false;
-			ReleaseCapture();
-		}
-		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
-}
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UINT uFileNum;
+	POINT ptCur;
+	bool bSucceed = false;
 
-	if (g_gui != NULL && !(message == WM_MOUSEMOVE && (bOnDrag || bOnDragzoom)))
+	if (g_gui != NULL && !(message == WM_MOUSEMOVE && (bOnDrag || bOnDragzoom || bOnDragRotate)))
 		g_gui->MsgProc(hWnd, message, wParam, lParam);
 
     switch (message)
@@ -383,6 +262,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case IDM_CLEAR:
 				Drop();
+				PostPicPackChange();
 				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -392,7 +272,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//	WM_PAINT	- 处理窗口重绘，需要高效
     case WM_PAINT:
         {
-			if (!bIconic)
+			if (!IsIconic(hWnd))
 			{
 				Render();//使得调整窗口尺寸时自动重绘（调整窗口尺寸时不进入主循环）
 
@@ -422,64 +302,60 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 	//	WM_ERASEBKGND	- 背景擦除
 	case WM_ERASEBKGND:
-		//不采取动作，防止窗口重绘时闪烁
+		// 不采取动作，防止窗口重绘时闪烁
+		// 后果是窗口都以白底刷新
 		break;
 	//	WM_MOUSEMOVE	- 鼠标移动，需要高效
 	case WM_MOUSEMOVE:
+		ptCur = { LOSHORT(lParam),HISHORT(lParam) };
 		if (bPicOn)
 		{
 			if (bOnDrag)//*****************************************高效*******************************************
 			{
-				/*mainbmp->TestInc();
-				surfer.SurfRenew(false);*/
-				SF_SRFR(surfer.OnMove_Custom(MINUSPOINT(cursor, lastCursor)));
+				//pLiveBmp->TestAlpha(pLiveBmp);// 测试
+				SF_SRFR(surfer.OnDrag_Custom(MINUSPOINT(ptCur, ptLastCursor)));
 				SF_DR();
 			}
 			else if (bOnDragzoom)//*****************************************高效********************************
 			{
-				surfer.SurfAdjustZoom_DragPR(cursor.x - lastCursor.x);//调整放大倍率
-				bSurfRenew = surfer.SurfZoomRenew(NULL, ISALTDOWN, !ISKEYDOWN('V'));
-
-				bNeedForceRenew = true;
+				surfer.SurfAdjustZoom_DragPR(ptCur.x - ptLastCursor.x, true, ISALTDOWN);//调整放大倍率
+				SF_SRFR(surfer.SurfRenew(!ISKEYDOWN('V')));
+				//bNeedForceRenew |= surfer.IsSurfNull();//surface 更新失败仍然激发刷新
 
 				// 标志
-				if (bSurfRenew)
-					surfRenewTick = GetTickCount();
 				bDragzooming = true;
 				dragzoomTick = GetTickCount();
 			}
+			else if (bOnDragRotate)
+			{
+				surfer.SurfAdjustRotate_DragPR(ptCur.x - ptLastCursor.x, true);
+				SF_SRFR(surfer.SurfRenew(!ISKEYDOWN('V')));
+			}
 			else
 			{
-				//g_gui->HandleMouse(message, cursor, wParam, lParam);
+				;
 			}
 		}
 		else
 			;
-			//g_gui->HandleMouse(message, cursor, wParam, lParam);
 		// 获取信息
-		surfer.GetCurInfo(&cursor, &rcClient);
-		//pD3DWnd->ChangeVBColor_tail(&colorblock
-		//	, surfer.bCursorOnPic ? SETALPHA(surfer.cursorColor, COLOR_BLOCKALPHA) : BackgroundColor
-		//	, sizeof(FVF2));
+		surfer.GetCurInfo(&ptCur);
 
-		lastCursor = cursor;//保存鼠标位置
+		ptLastCursor = ptCur;//保存鼠标位置
 		break;
 	//	WM_MOUSEWHEEL	- 鼠标滚轮，需要高效
 	case WM_MOUSEWHEEL:
+		ptCur = { LOSHORT(lParam), HISHORT(lParam) };
+		ScreenToClient(hWndMain, &ptCur);//WM_MOUSEWHEEL参数是屏幕坐标
 		if (bPicOn)
 		{
 			//缩放
-			POINT base;
-			base.x = cursor.x - rcClient.left;
-			base.y = cursor.y - rcClient.top;
-			surfer.SurfAdjustZoom_WheelPR((short)HIWORD(wParam));
-			SF_SRFR(surfer.SurfZoomRenew(&base, ISALTDOWN, !ISKEYDOWN('V')));
+			surfer.SetBasePoint(ptCur);
+			surfer.SurfAdjustZoom_WheelPR(HISHORT(wParam), true, ISALTDOWN);
+			SF_SRFR(surfer.SurfRenew(!ISKEYDOWN('V')));
 
 			// 获取信息
-			surfer.GetCurInfo(&cursor, &rcClient);
-			//pD3DWnd->ChangeVBColor_tail(&colorblock
-			//	, surfer.bCursorOnPic ? SETALPHA(surfer.cursorColor, COLOR_BLOCKALPHA) : BackgroundColor
-			//	, sizeof(FVF2));
+			surfer.GetCurInfo(&ptCur);
 
 			// 标志
 			bOnZoom = true;
@@ -488,19 +364,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	//	WM_SIZE	- 窗口拉伸，需要高效
 	case WM_SIZE:
-		bIconic = IsIconic(hWnd) > 0;
-		if (!bIconic)
+		if (!IsIconic(hWnd))
 		{
-			GetCursorPos(&cursor);//size时不进入主循环，需获取鼠标位置
-			OnWinChange();//更新窗口区域。如果使用size结束重置设备，这句可不执行。TODO：设置另一窗口区域信息实时更新
-			MaintainWindowStyle();//维持窗口样式
+			OnWinChange();// 更新窗口区域。如果使用size结束重置设备，这句可不执行，添加另一窗口区域变量实时更新。
+			MaintainWindowStyle();// 维持窗口样式
 
-			//如果使用size结束重置设备，ResetDevice和surface更新都不执行
+			//如果使用 WM_SIZE 结束重置设备，ResetDevice 和 surface 更新都只在结束时执行
 			// 重置设备
 			ResetDevice();
 
 			// surface更新
-			SF_SRFR(surfer.OnWinsize_Custom());
+			SF_SR(surfer.OnWinsize_Custom());
+
+			// 获取信息
+			surfer.GetCurInfo(&ptCur);
 
 			// 标志
 			bOnSize = true;
@@ -513,24 +390,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	//	WM_MOVE	- 窗口移动，需要高效
 	case WM_MOVE:
-		GetCursorPos(&cursor);//WM_MOVE时不进入主循环，需要更新鼠标位置
 		if (!bOnSize)
 		{
 			//更新窗口区域
-			OnWinChange();//size时不做,否则是重复执行
+			OnWinChange();// bOnSize 时不做，WM_SIZE 已经执行
 		}
 		break;
 	//	WM_SETCURSOR	- 设置鼠标样式
 	case WM_SETCURSOR:
-		//不同窗口模式，不同处理
-		if (winMode == WINMODE_ROUND)
+		switch (GetSizeType())
 		{
-			if (bWindowedFullscreen)
-				::SetCursor(LoadCursor(NULL, IDC_ARROW));
-			else
-				SetCursor_Custom();
+		case HTLEFT:
+		case HTRIGHT:
+		case HTTOP:
+		case HTBOTTOM:
+		case HTTOPLEFT:
+		case HTBOTTOMRIGHT:
+		case HTTOPRIGHT:
+		case HTBOTTOMLEFT:
+			if (hCursorG != NULL)
+			{
+				SetCursor(hCursorG);
+				bSucceed = true;
+			}
+			break;
+		default:
+			if (hCursorMain != NULL)
+			{
+				SetCursor(hCursorMain);
+				bSucceed = true;
+			}
+			break;
 		}
-		else
+		if(!bSucceed)
 			DefWindowProc(hWnd, message, wParam, lParam);
 		break;
 	//	WM_LBUTTONDBLCLK	- 鼠标左键双击
@@ -547,50 +439,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	//	WM_LBUTTONDOWN	- 鼠标左键按下
 	case WM_LBUTTONDOWN:		
 		//自定义客户区内拉伸窗口
+		ptCur = { LOSHORT(lParam),HISHORT(lParam) };
 		if (ISCONTROLDOWN)
 		{
 			if (bWindowedFullscreen)
 				FullScreen_Windowed(!bWindowedFullscreen, false);//退出全屏
 			
-			BeginDragWindow_Inner(cursor.x, cursor.y);
+			BeginDragWindow_Inner(ptCur);
 			break;
 		}
 		//无边框窗口拉伸
-		else if (bSizeEnable && winMode == WINMODE_ROUND
-			&& GetSizeType(cursor) != 0 && !bWindowedFullscreen)
+		else if (winMode == WINMODE_ROUND
+			&& GetSizeType() != HTNOWHERE && !bWindowedFullscreen)
 		{
-			BeginDragWindow_Custom(cursor.x, cursor.y);
+			BeginDragWindow_Custom(ptCur);
 			break;
 		}
 		//拖动图片
 		else
 		{
-			if (bPicOn)
+			if (bPicOn && !bOnDragzoom && !bOnDragRotate)
 			{
 				BeginDragPic();//开始拖动
 			}
 		}
 
-		//g_gui->HandleMouse(message, cursor, wParam, lParam);
-
 		break;
 	//	WM_LBUTTONUP	- 鼠标左键抬起
 	case WM_LBUTTONUP:
-		
 		if (bOnDrag)
 		{
 			EndDragPic();
 		}
-
-		ReleaseCapture();
-		//g_gui->HandleMouse(message, cursor, wParam, lParam);
-
 		break;
 	//	WM_RBUTTONDOWN	- 鼠标右键按下
 	case WM_RBUTTONDOWN:
-		if (bPicOn)
+		if (bPicOn && !bOnDrag && !bOnDragRotate)
 		{
-			BeginDragZoomPic();//开始拖动
+			if (ISKEYDOWN('R'))
+				BeginDragRotatePic();
+			else
+				BeginDragZoomPic();//开始拖动
 		}
 		break;
 	//	WM_RBUTTONDOWN	- 鼠标右键抬起
@@ -599,12 +488,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			EndDragZoomPic();
 		}
+		else if (bOnDragRotate)
+		{
+			EndDragRotatePic();
+		}
 		break;
-	case WM_NCLBUTTONDOWN:
-		DefWindowProc(hWnd, message, wParam, lParam); 
-		//防止发送NCLBUTTONDOWN后鼠标抬起不响应
-		PostMessage(hWnd, WM_LBUTTONUP, GetSizeType(cursor), MAKELPARAM(cursor.x, cursor.y));
-		break;
+	//case WM_NCLBUTTONDOWN:
+	//	DefWindowProc(hWnd, message, wParam, lParam); 
+	//	//防止发送NCLBUTTONDOWN后鼠标抬起不响应
+	//	PostMessage(hWnd, WM_LBUTTONUP, GetSizeType(), lParam);
+	//	break;
 	/*case WM_SYSCOMMAND:
 		switch (wParam & 0xFFF0)
 		{
@@ -617,25 +510,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		KeyDownProc(wParam);
 		//g_gui->HandleKeyboard(message, wParam, lParam);
 		break;
-	//	WM_RESETDEVICE	- 处理设备丢失
-	case WM_RESETDEVICE:
-		ResetDevice();
-		break;
 	//	WM_SURFFORCERENEW	- 强制刷新surface（用合适的生成方法）
 	case WM_SURFFORCERENEW:
-		if (!bOnDrag && !bOnZoom && !bOnDragzoom && !bOnSize)
+		if (!bOnDrag && !bOnZoom && !bOnDragzoom && !bOnDragRotate && !bOnSize)
 		{
 			SF_SR(surfer.SurfRenew(false));
 			bNeedForceRenew = false;//清除需要强制刷新的标志
-			
-			surfer.GetCurInfo(&cursor, &rcClient);//获取信息
-			//pD3DWnd->ChangeVBColor_tail(&colorblock
-			//	, SETALPHA(surfer.cursorColor, COLOR_BLOCKALPHA), sizeof(FVF2));//改变colorblock模型颜色
+
+			UpdateSurfaceInfo();
 
 		}
 		break;
 	case WM_MOUSEWHEELEND:
-		if (bNeedForceRenew/* && !bOnDrag && !bOnZoom && !bOnDragzoom && !bOnSize*/)
+		if (bNeedForceRenew)
 			PostMessage(hWnd, WM_SURFFORCERENEW, 0, 1);
 		break;
 	//case WM_SIZEEND:
@@ -684,14 +571,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_TOGGLEFULLSCREEN:
 		FullScreen_Windowed(!bWindowedFullscreen);
 		break;
-	/*case WM_CREATE:
-		break;*/
 	case WM_CLOSE:
 		if (hWndAid)
-		{
 			PostMessage(hWndAid, WM_CLOSE, 0, 1);
-			PostMessage(hWndAid, WM_CLOSE, 0, 1);
-		}
+		if (hWndStartup)
+			PostMessage(hWndStartup, WM_CLOSE, 0, 1);
 		return DefWindowProc(hWnd, message, wParam, lParam);
 		break;
 	//	WM_DESTROY	- 窗口关闭
@@ -705,8 +589,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		NCCALCSIZE_PARAMS *pnccsp;
 		OnWinChange();
 		pnccsp = (NCCALCSIZE_PARAMS*)lParam;
-		pnccsp->rgrc[0].top = rcWnd.top + 8;
-		pnccsp->rgrc[0].bottom = pnccsp->rgrc[0].top + HEIGHTOF(rcWnd)-16;
+		pnccsp->rgrc[0].top = rcWindow.top + 8;
+		pnccsp->rgrc[0].bottom = pnccsp->rgrc[0].top + HEIGHTOF(rcWindow)-16;
 	//	WM_NCPAINT	- 非客户区绘制
 	case WM_NCPAINT:
 		break;
@@ -737,32 +621,51 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     return (INT_PTR)FALSE;
 }
 
-short MYCALL1 GetSizeType(CPoint point)
+short MYCALL1 GetSizeType()
 {
 	short sizetype = HTNOWHERE;
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
 
-	if (point.x > rcClient.left + SIZE_NEAR_PIXEL && point.x < rcClient.right - SIZE_NEAR_PIXEL
-		&& point.y > rcWnd.top + 12 && point.y < rcClient.bottom - SIZE_NEAR_PIXEL)
+	int sizeRegW = 0, sizeRegH = 0;
+	int sizeRegTop = 0;
+	if (winMode == WINMODE_ROUND)
+	{
+		sizeRegW = WIDTHOF(rcClient);
+		sizeRegH = HEIGHTOF(rcClient);
+		sizeRegTop = -GetSystemMetrics(SM_CYMENU);//SM_CXBORDER,SM_CXDLGFRAME
+	}
+	else
+	{
+		sizeRegW = WIDTHOF(rcWindow);
+		sizeRegH = HEIGHTOF(rcWindow);
+		ptClient.x += rcClient.left - rcWindow.left;
+		ptClient.y += rcClient.top - rcWindow.top;
+	}
+
+	if (ptClient.x >= SIZE_NEAR_PIXEL && ptClient.x < sizeRegW - SIZE_NEAR_PIXEL &&
+		ptClient.y >= sizeRegTop + SIZE_NEAR_PIXEL && ptClient.y < sizeRegH - SIZE_NEAR_PIXEL)
 		sizetype = HTNOWHERE;
-	else if (point.x <= rcClient.left + SIZE_NEAR_PIXEL && point.x >= rcClient.left - SIZE_NEAR_PIXEL
-		&& point.y <= rcWnd.top + 12 && point.y >= rcWnd.top - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= -SIZE_NEAR_PIXEL && ptClient.x < SIZE_NEAR_PIXEL &&
+		ptClient.y >= sizeRegTop - SIZE_NEAR_PIXEL && ptClient.y < sizeRegTop + SIZE_NEAR_PIXEL)
 		sizetype = HTTOPLEFT;
-	else if (point.x <= rcClient.right + SIZE_NEAR_PIXEL && point.x >= rcClient.right - SIZE_NEAR_PIXEL
-		&& point.y <= rcClient.bottom + SIZE_NEAR_PIXEL && point.y >= rcClient.bottom - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= sizeRegW - SIZE_NEAR_PIXEL && ptClient.x < sizeRegW + SIZE_NEAR_PIXEL &&
+		ptClient.y >= sizeRegH - SIZE_NEAR_PIXEL && ptClient.y < sizeRegH + SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOMRIGHT;
-	else if (point.x <= rcClient.right + SIZE_NEAR_PIXEL && point.x >= rcClient.right - SIZE_NEAR_PIXEL
-		&& point.y <= rcWnd.top + 12 && point.y >= rcWnd.top - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= sizeRegW - SIZE_NEAR_PIXEL && ptClient.x < sizeRegW + SIZE_NEAR_PIXEL &&
+		ptClient.y >= sizeRegTop - SIZE_NEAR_PIXEL && ptClient.y < sizeRegTop + SIZE_NEAR_PIXEL)
 		sizetype = HTTOPRIGHT;
-	else if (point.x <= rcClient.left + SIZE_NEAR_PIXEL && point.x >= rcClient.left - SIZE_NEAR_PIXEL
-		&& point.y <= rcClient.bottom + SIZE_NEAR_PIXEL && point.y >= rcClient.bottom - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= -SIZE_NEAR_PIXEL && ptClient.x < SIZE_NEAR_PIXEL &&
+		ptClient.y >= sizeRegH - SIZE_NEAR_PIXEL && ptClient.y < sizeRegH + SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOMLEFT;
-	else if (point.x <= rcClient.left + SIZE_NEAR_PIXEL && point.x >= rcClient.left - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= -SIZE_NEAR_PIXEL && ptClient.x < SIZE_NEAR_PIXEL)
 		sizetype = HTLEFT;
-	else if (point.x <= rcClient.right + SIZE_NEAR_PIXEL && point.x >= rcClient.right - SIZE_NEAR_PIXEL)
+	else if (ptClient.x >= sizeRegW - SIZE_NEAR_PIXEL && ptClient.x < sizeRegW + SIZE_NEAR_PIXEL)
 		sizetype = HTRIGHT;
-	else if (point.y <= rcWnd.top + 12 + SIZE_NEAR_PIXEL && point.y >= rcWnd.top + 12 - SIZE_NEAR_PIXEL)
+	else if (ptClient.y >= sizeRegTop - SIZE_NEAR_PIXEL && ptClient.y < sizeRegTop + SIZE_NEAR_PIXEL)
 		sizetype = HTTOP;
-	else if (point.y <= rcClient.bottom + SIZE_NEAR_PIXEL && point.y >= rcClient.bottom - SIZE_NEAR_PIXEL)
+	else if (ptClient.y >= sizeRegH - SIZE_NEAR_PIXEL && ptClient.y < sizeRegH + SIZE_NEAR_PIXEL)
 		sizetype = HTBOTTOM;
 	else
 		sizetype = HTNOWHERE;
@@ -770,42 +673,9 @@ short MYCALL1 GetSizeType(CPoint point)
 	return sizetype;
 }
 
-inline void MYCALL1 SetCursor_Custom()
-{
-	if (bSizeEnable && winMode == WINMODE_ROUND)
-	{
-		switch (GetSizeType(cursor))
-		{
-		case HTLEFT:
-		case HTRIGHT:
-			::SetCursor(LoadCursor(NULL, IDC_SIZEWE));
-			break;
-		case HTTOP:
-		case HTBOTTOM:
-			::SetCursor(LoadCursor(NULL, IDC_SIZENS));
-			break;
-		case HTTOPLEFT:
-		case HTBOTTOMRIGHT:
-			::SetCursor(LoadCursor(NULL, IDC_SIZENWSE));
-			break;
-		case HTTOPRIGHT:
-		case HTBOTTOMLEFT:
-			::SetCursor(LoadCursor(NULL, IDC_SIZENESW));
-			break;
-		default:
-			::SetCursor(LoadCursor(NULL, IDC_ARROW));
-			break;
-		}
-	}
-	else
-	{
-		;
-	}
-}
-
 void MYCALL1 OnWinChange()
 {
-	GetClientRect(hWndMain, &rcClient);//得到client区域尺寸
+	GetClientRect(hWndMain, &rcClient);//得 到client区域尺寸
 	POINT clienttl = { 0, 0 };
 	ClientToScreen(hWndMain, &clienttl);//获得client区域左上角的屏幕坐标
 	//得到client真实屏幕区域
@@ -815,10 +685,7 @@ void MYCALL1 OnWinChange()
 	rcClient.bottom += clienttl.y;
 
 	//得到窗口区域
-	GetWindowRect(hWndMain, &rcWnd);
-	//客户区和窗口的长宽差
-	WinDiffW = WIDTHOF(rcWnd) - WIDTHOF(rcClient);
-	WinDiffH = HEIGHTOF(rcWnd) - HEIGHTOF(rcClient);
+	GetWindowRect(hWndMain, &rcWindow);
 
 	//更新文字信息显示区域
 	RefreshTextRect();
@@ -837,41 +704,35 @@ inline void MYCALL1 RefreshTextRect()
 
 bool MYCALL1 Init()
 {
-	//窗口信息&状态
+	// 窗口信息、状态
 	OnWinChange();
-
-	GetCursorPos(&cursor);
-	lastCursor = cursor;
-
-	WinStdW = WINDOWWIDTH_INIT;
-	WinStdH = WINDOWHEIGHT_INIT;
+	hCursorMain = LoadCursorFromFile(L"F://PIC//mycur1_16.cur");
+	hCursorG = LoadCursorFromFile(L"F://PIC//mycur3.cur");
+	GetCursorPos(&ptLastCursor);
+	ScreenToClient(hWndMain, &ptLastCursor);
 
 	hProcess = GetCurrentProcess();
-	//状态标志
+	// 状态标志
 	bPureWnd = false;
 	bWindowedFullscreen = false;
-	bIconic = false;
 	bOnDrag = false;
 	bOnDragzoom = false;
 	bDragging = false;
 	bDragzooming = false;
+	bOnDragRotate = false;
 	bOnZoom = false;
 	bOnSize = false;
 	bSurfRenew = false;
 	bNeedForceRenew = false;
-	//选项标志
+	// 选项标志
 	mode = MODE_PIC;
-	SetWindowMode(WINMODE_INIT);//WINMODE_NORMALWINDOWS
-	bColorblockOn = false;
+	SetWindowMode(WINMODE_INIT);//WINMODE_NORMAL
 	BackgroundColor = COLOR_BKG_INIT;
-	bSizeEnable = true;
 	bFlagsShow = true;
 	bInfoShow = true;
 	bFpsLimited = true;
-	bScreenColorOn = false;
-	screenColor = 0;
 
-	//计时
+	// 计时
 	nLoops = 0;
 	fps = 0.0f;
 	staticFps = STATIC_FPS_NORMAL;
@@ -884,11 +745,13 @@ bool MYCALL1 Init()
 	frameTime = 0.0f;
 	procTime = 0.0f;
 
-	//D3D
+	// D3D
 	mainDevice = NULL;
 
-	//信息显示
-	rcPic = RECT(TEXTMARGIN_SIDE, TEXTMARGIN_TOP + 60, 400, 100);
+	InitNonPic();
+
+	// 信息显示
+	rcPic = RECT(TEXTMARGIN_SIDE, TEXTMARGIN_TOP + 80, 400, 100);
 	rcSurface = RECT(TEXTMARGIN_SIDE, rcPic.bottom, 400, 500);
 
 	RefreshTextRect();
@@ -922,7 +785,6 @@ bool MYCALL1 D3DInit()
 	/*d3dfont1 = new CD3DFont(L"Arial Rounded MT Bold", 12, 0);
 	d3dfont1->InitDeviceObjects(mainDevice);
 	d3dfont1->RestoreDeviceObjects();*/
-	picInfoStr[0] = L'\0';
 	
 	// SPRITE
 	/*D3DXCreateSprite(mainDevice, &m_sprite);
@@ -932,27 +794,28 @@ bool MYCALL1 D3DInit()
 
 	// OBJECT
 	//pD3DWnd->CreateMesh_Custom1(&decorate);//自创模型并保存
-	D3DXLoadMeshFromXW(L"crystal.x", D3DXMESH_MANAGED, mainDevice, NULL, NULL, NULL, NULL, &decorate);
-	D3DXMatrixIdentity(&matWorld);
-	D3DXMatrixRotationX(&matWorld, PI_F / 2);
+	bDecorateOn = true;
+	if(bDecorateOn)
+		D3DXLoadMeshFromXW(L"crystal.x", D3DXMESH_MANAGED, mainDevice, NULL, NULL, NULL, NULL, &decorate);
+	if (decorate && bDecorateOn)
+	{
+		D3DXMatrixIdentity(&matWorld);
+		//D3DXMatrixRotationX(&matWorld, PI_F / 2);
 
-	/*pD3DWnd->CreateVertexBuffer_Custom1(&colorblock, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS);
-	pD3DWnd->CreateVertexBuffer_Custom1(&colorblockback
-		, COLORBLOCK_X, COLORBLOCK_Y, COLORBLOCK_RADIUS + 2, COLOR_BLOCKBACK);*/
+		// 光照
+		ZeroMemory(&light, sizeof(light));
+		SetLight();
 
-	// 光照
-	ZeroMemory(&light, sizeof(light));
-	SetLight();
+		ZeroMemory(&material, sizeof(D3DMATERIAL9));
+		material.Ambient = { 0.3f,0.3f,0.3f,1.0f };
+		material.Diffuse = { 1.0f,1.0f,1.0f,0.8f };
+		material.Specular = { 0.6f,0.6f,0.6f,1.0f };
+		material.Emissive = { 0.0f,0.0f,0.0f,0.0f };
+		material.Power = 400.0f;
 
-	ZeroMemory(&material, sizeof(D3DMATERIAL9));
-	material.Ambient = { 0.3f,0.3f,0.3f,1.0f };
-	material.Diffuse = { 1.0f,1.0f,1.0f,0.8f };
-	material.Specular = { 0.6f,0.6f,0.6f,1.0f };
-	material.Emissive = { 0.0f,0.0f,0.0f,0.0f };
-	material.Power = 400.0f;
-	
-	// VIEW
-	SetView();
+		// VIEW
+		SetView();
+	}
 
 	// RENDERSTATE
 	SetRenderState();
@@ -978,34 +841,6 @@ bool MYCALL1 D3DInit()
 	return true;
 }
 
-bool MYCALL1 LoadFile(WCHAR file[])
-{
-	if (!mainDevice)
-	{
-		return false;
-	}
-
-	PicPack *newpp = new PicPack;
-	HRESULT hr = newpp->LoadFile(mainDevice, file);//尝试加载新图片
-	if (SUCCEEDED(hr))
-	{
-		// 图片列表扩充 & 更新当前图片
-		picList.Add(newpp);
-		SetNewPic();
-
-		return true;
-	}
-	else
-	{
-		delete newpp;//释放
-
-		SetForegroundWindow(hWndMain);
-		D3DErrorShow(hr, L"Load File", hWndMain);// 显示错误信息
-
-		return false;
-	}
-}
-
 void OnSave()
 {
 	if (bPicOn)
@@ -1024,7 +859,7 @@ void OnSaveAs()
 	}
 }
 
-bool MYCALL1 OnWininitFile(LPWSTR cmdline)
+bool MYCALL1 OnWinInitFile(LPWSTR cmdline)
 {
 	LPWSTR *szArgList;
 	int argCount;
@@ -1075,7 +910,7 @@ inline void MYCALL1 DelayFlag()
 
 void MYCALL1 ClearFlag()
 {
-	ReleaseCapture();//统一释放
+	ReleaseCapture();// 统一释放
 	if (bOnDrag)
 	{
 		bOnDrag = false;
@@ -1084,7 +919,8 @@ void MYCALL1 ClearFlag()
 	{
 		bOnDragzoom = false;
 	}
-	bDragzooming = false;
+	bDragzooming = false; 
+	bOnDragRotate = false;
 	bDragging = false;
 	bOnZoom = false;
 	bOnSize = false;
@@ -1092,118 +928,37 @@ void MYCALL1 ClearFlag()
 	bNeedForceRenew = false;
 }
 
-void InitNonPic()
+void PostPicPackChange(bool bRenew)
 {
-	pLivePicpack = NULL;
-	pLiveBmp = NULL;
+	UpdateTitle();
 
-	bPicOn = HasPic();
+	SwitchSurface(pLivePicpack, pLastPicpack, bRenew);
+	UpdateSurfaceInfo();
 }
 
-bool SetPic(short picidx)
+void PostPicPackInfoChange()
 {
-	PicPack *pOldPicpack = pLivePicpack;
-	picList.SetPicPack(picidx);
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, pOldPicpack);
-	SetPicInfo();
-	bPicOn = HasPic();
-
-	return true;
+	UpdateLocalPicStr();
+	UpdateTitle();
 }
 
-bool SetNewPic()
+void UpdateSurfaceInfo()
 {
-	PicPack *oldpicpack = pLivePicpack;
-	picList.SetTailPicPack();
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, oldpicpack, false);
-
-	// 居中
-	surfer.SurfCenterPR(*pBufferW, *pBufferH);
-	bSurfRenew = surfer.SurfRenew(true);
-	if (bSurfRenew)
-		surfRenewTick = GetTickCount();
-	bNeedForceRenew |= bSurfRenew; 
-	if (bNeedForceRenew)//如果拖动过程中需要更新图片，在结束时用合适方法重新生成surface
-		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
-
-	SetPicInfo();
-	bPicOn = HasPic();
-
-	return true;
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
+	surfer.GetCurInfo(&ptClient);
 }
 
-bool SetTailPic()
+void UpdateTitle()
 {
-	PicPack *oldpicpack = pLivePicpack;
-	picList.SetTailPicPack();
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, oldpicpack);
-	SetPicInfo();
-	bPicOn = HasPic();
-
-	return true;
+	if (pLivePicpack)
+		SetWindowTextW(hWndMain, pLivePicpack->GetFileName());// 窗口标题
+	else
+		SetWindowTextW(hWndMain, L"");
 }
 
-bool SetPrevPic()
-{
-	PicPack *oldpicpack = pLivePicpack;
-	picList.SetPrev();
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, oldpicpack);
-	SetPicInfo();
-	bPicOn = HasPic();
-
-	return true;
-}
-
-bool SetNextPic()
-{
-	PicPack *oldpicpack = pLivePicpack;
-	picList.SetNext();
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, oldpicpack);
-	SetPicInfo();
-	bPicOn = HasPic();
-
-	return true;
-}
-
-void Drop()
-{
-	picList.Drop();
-
-	// 更新本地
-	pLivePicpack = picList.pLivePicPack;
-	pLiveBmp = picList.pLiveBMP;
-
-	SetSurface(pLivePicpack, NULL);// 不解绑
-	SetPicInfo();
-	bPicOn = HasPic();
-}
-
-void SetSurface(PicPack *newpicpack, PicPack *oldpicpack, bool renew)
+void SwitchSurface(PicPack *newpicpack, PicPack *oldpicpack, bool renew)
 {
 	if (newpicpack != oldpicpack || newpicpack == NULL)
 	{
@@ -1211,89 +966,87 @@ void SetSurface(PicPack *newpicpack, PicPack *oldpicpack, bool renew)
 			surfer.DeBindPic(oldpicpack);// 解绑
 		surfer.BindPic(newpicpack, renew);// 捆绑
 
-		//标志
-		bSurfRenew = true;//TODO强制设置为已更新？
-		surfRenewTick = GetTickCount();
+		// 标志
+		if (renew)
+		{
+			bSurfRenew = true;// TODO强制设置为已更新？
+			surfRenewTick = GetTickCount();
 
-		bNeedForceRenew = true;
-		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+			bNeedForceRenew = true;
+			PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
 
-		Render();
+			Render();
+		}
 	}
-}
-
-void SetPicInfo()
-{
-	if (pLivePicpack)
-	{
-		StringCchCopy(picInfoStr, 256, pLivePicpack->GetPicInfoStrW());// 图片信息字符串更新
-		SetWindowTextW(hWndMain, pLivePicpack->GetFileName());// 窗口标题
-	}
-	else
-	{
-		picInfoStr[0] = L'\0';
-		SetWindowTextW(hWndMain, L"");
-	}
-	surfer.GetCurInfo(&cursor, &rcClient);//获取信息
 }
 
 void PicMove(int dx, int dy)
 {
-	SF_SRFR(surfer.OnMove_Custom({ dx, dy }));
+	SF_SRFR(surfer.OnDrag_Custom({ dx, dy }));
 
-	surfer.GetCurInfo(&cursor, &rcClient);
+	if (bNeedForceRenew)
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+
+	UpdateSurfaceInfo();
 }
 
 void PicRestore()
 {
-	POINT base;
-	base.x = cursor.x - rcClient.left;
-	base.y = cursor.y - rcClient.top;
-
-	surfer.SurfSetZoomPR(1);
-	SF_SR(surfer.SurfZoomRenew(&base, true, false));
+	surfer.SurfCenterPR(*pBufferW, *pBufferH);
+	surfer.SurfSetZoomPR(1, true);
+	surfer.SurfSetRotatePR(0, true);
+	SF_SR(surfer.SurfRenew(false));// 恢复图片，不需要加速
 	SF_OZ();
 
-	surfer.GetCurInfo(&cursor, &rcClient);
+	UpdateSurfaceInfo();
 }
 
 void PicClipWindow()
 {
-	POINT surfBase = surfer.GetBase();
+	POINTi64 surfBase = surfer.GetBase();
 	surfBase.x = -surfBase.x;
 	surfBase.y = -surfBase.y;
-	SF_SRFR(surfer.OnMove_Custom(surfBase));
+	SF_SRFR(surfer.OnDrag_Custom(surfBase));
 
-	rcWnd.right = rcWnd.left + (LONG)surfer.GetZoomWidth() + WinDiffW;
-	rcWnd.bottom = rcWnd.top + (LONG)surfer.GetZoomHeight() + WinDiffH;
-	SetWindowPos(hWndMain, HWND_TOP, rcWnd.left, rcWnd.top
-		, rcWnd.right - rcWnd.left, rcWnd.bottom - rcWnd.top
+	if (bNeedForceRenew)
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+
+	UpdateSurfaceInfo();
+
+	// 客户区和窗口的长宽差
+	int WinDiffW = WIDTHOF(rcWindow) - WIDTHOF(rcClient);
+	int WinDiffH = HEIGHTOF(rcWindow) - HEIGHTOF(rcClient);
+	// 更新窗口位置
+	rcWindow.right = rcWindow.left + (LONG)surfer.GetZoomWidth() + WinDiffW;
+	rcWindow.bottom = rcWindow.top + (LONG)surfer.GetZoomHeight() + WinDiffH;
+	SetWindowPos(hWndMain, HWND_TOP, rcWindow.left, rcWindow.top
+		, rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top
 		, 0);
-
-	surfer.GetCurInfo(&cursor, &rcClient);
 }
 
-void BeginDragWindow_Inner(int cursorx, int cursory)
+void BeginDragWindow_Inner(POINT ptCur)
 {
-	if (cursorx < MIDDLEXOF(rcClient) + WIDTHOF(rcClient) / 5
-		&& cursorx > MIDDLEXOF(rcClient) - WIDTHOF(rcClient) / 5
-		&& cursory < MIDDLEYOF(rcClient) + HEIGHTOF(rcClient) / 5
-		&& cursory > MIDDLEYOF(rcClient) - HEIGHTOF(rcClient) / 5)
+	int clientW = WIDTHOF(rcClient);
+	int clientH = HEIGHTOF(rcClient);
+	if (ptCur.x < clientW / 2 + WIDTHOF(rcClient) / 5
+		&& ptCur.x > clientW / 2 - WIDTHOF(rcClient) / 5
+		&& ptCur.y < clientH / 2 + HEIGHTOF(rcClient) / 5
+		&& ptCur.y > clientH / 2 - HEIGHTOF(rcClient) / 5)
 	{
 		PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 	}
 	else
 	{
-		if (cursory < MIDDLEYOF(rcClient))
+		if (ptCur.y < clientH / 2)
 		{
-			if (cursorx < MIDDLEXOF(rcClient))
+			if (ptCur.x < clientW / 2)
 				PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTTOPLEFT, 0);
 			else
 				PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTTOPRIGHT, 0);
 		}
 		else
 		{
-			if (cursorx < MIDDLEXOF(rcClient))
+			if (ptCur.x < clientW / 2)
 				PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTBOTTOMLEFT, 0);
 			else
 				PostMessage(hWndMain, WM_NCLBUTTONDOWN, HTBOTTOMRIGHT, 0);
@@ -1301,11 +1054,10 @@ void BeginDragWindow_Inner(int cursorx, int cursory)
 	}
 }
 
-void BeginDragWindow_Custom(int cursorx, int cursory)
+void BeginDragWindow_Custom(POINT ptCur)
 {
-	PostMessage(hWndMain, WM_NCLBUTTONDOWN, GetSizeType(cursor)
-		, MAKELPARAM(cursorx, cursory));
-
+	PostMessage(hWndMain, WM_NCLBUTTONDOWN, GetSizeType()
+		, MAKELPARAM(ptCur.x, ptCur.y));
 }
 
 void KeyDownProc(WPARAM wParam)
@@ -1323,7 +1075,7 @@ void KeyDownProc(WPARAM wParam)
 				bFlagsShow = !bFlagsShow;
 				break;
 			case 'M':
-			//multisample导致图片不显示
+			// multisample导致图片不显示
 				pD3DWnd->ChangeMultiSample();
 				ResetDevice();
 				break;
@@ -1332,7 +1084,7 @@ void KeyDownProc(WPARAM wParam)
 				break;
 			case 'W':	// 改变窗口模式
 				if (winMode == WINMODE_ROUND)
-					SetWindowMode(WINMODE_NORMALWINDOWS);
+					SetWindowMode(WINMODE_NORMAL);
 				else
 					SetWindowMode(WINMODE_ROUND);
 				break;
@@ -1363,13 +1115,6 @@ void KeyDownProc(WPARAM wParam)
 			case 'E':	// 切换信息显示
 				bInfoShow = !bInfoShow;
 				break;
-			case 'F':	// 设置标准窗口尺寸
-				if (bPicOn)
-					PicFitWnd();
-				break;
-			case 'I':
-				bColorblockOn = !bColorblockOn;
-				break;
 			case 'M':	// 图片居中
 				if (bPicOn)
 					PicCenter();
@@ -1396,11 +1141,11 @@ void KeyDownProc(WPARAM wParam)
 			case 'V':	// 手动重新生成surface一次
 				if (bPicOn)
 				{
-					if (!bOnDragzoom && !bOnZoom)//drazoom时按v在mousemove中刷新surface
+					if (!bOnDragzoom && !bOnZoom)// drazoom 时按 v 在mousemove 中刷新 surface
 					{
 						SF_SR(surfer.SurfRenew(false));
 
-						surfer.GetCurInfo(&cursor, &rcClient);
+						UpdateSurfaceInfo();
 					}
 				}
 				break;
@@ -1409,9 +1154,10 @@ void KeyDownProc(WPARAM wParam)
 				if (bPicOn)
 					PicMove(0, -1);
 				break;
-			case 'X':	// 重置收敛帧率值（重新开始计算）
+			case 'X':	// 重置收敛帧率值 ( 重新开始计算 )
 				fpsCount = 0;
 				cvgFps = -1;
+				surfer.ClearTimeInfo();
 				break;
 			case VK_F1:	// 显示显卡信息			
 				pD3DWnd->DisplayAdapter();
@@ -1430,13 +1176,16 @@ void KeyDownProc(WPARAM wParam)
 				break;
 			case VK_OEM_MINUS:
 				SetPrevPic();
+				PostPicPackChange();
 				break;
 			case VK_OEM_PLUS:
 			case VK_TAB:
 				SetNextPic();
+				PostPicPackChange();
 				break;
 			case VK_DELETE:
 				Drop();
+				PostPicPackChange();
 				break;
 			}
 		}
@@ -1480,7 +1229,7 @@ void OpenFileWin()
 	}
 }
 
-void SaveFileWin(WCHAR file[])
+void SaveFileWin(const WCHAR file[])
 {
 	OPENFILENAME svfn;
 	WCHAR savefilename[MAX_PATH] = { 0 };//存放文件名 
@@ -1530,23 +1279,69 @@ void SaveFileWin(WCHAR file[])
 
 bool SaveFile(WCHAR file[])
 {
-	if (!pLivePicpack)
-	{
+	if (pLivePicpack == NULL)
 		return false;
-	}
 
-	if (!pLivePicpack->SaveFile(mainDevice, file))
+	if (pLivePicpack->SaveFile(mainDevice, file))
+	{
+		PostPicPackInfoChange();
+
+		return true;
+	}
+	else
 	{
 		MessageBoxW(hWndMain, L"Save File FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 		return false;
 	}
-	else
-	{
-		SetWindowTextW(hWndMain, file);//窗口标题
+}
 
-		StringCchCopy(picInfoStr, 256, pLivePicpack->GetPicInfoStrW());
+bool MYCALL1 LoadFile(WCHAR file[])
+{
+	if (!mainDevice)
+	{
+		return false;
+	}
+
+	PicPack *newpp = new PicPack;
+	HRESULT hr = newpp->LoadFile(mainDevice, file);// 加载新图片
+	if (SUCCEEDED(hr))
+	{
+		// 图片列表扩充、更新当前图片
+		picList.Add(newpp);
+		SetNewPic();
+
+		PostPicPackChange(false);
+
+		// 居中
+		surfer.SurfCenterPR(*pBufferW, *pBufferH);
+		if (pLiveBmp)
+		{
+			if (pLiveBmp->width > *pBufferW*PICMAXSCALE_INIT || pLiveBmp->height > *pBufferH*PICMAXSCALE_INIT)
+			{
+				double zoomNew = min(*pBufferW*PICMAXSCALE_INIT / pLiveBmp->width, *pBufferH*PICMAXSCALE_INIT / pLiveBmp->height);
+				surfer.SurfSetZoomPR(zoomNew, true);
+			}
+		}
+		bSurfRenew = surfer.SurfRenew(true);
+		if (bSurfRenew)
+			surfRenewTick = GetTickCount();
+		bNeedForceRenew |= bSurfRenew;
+		if (bNeedForceRenew)// 如果拖动过程中需要更新图片，在结束时用合适方法重新生成 surface
+			PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+
+		// 更新 surface 信息 （因为又进行了次居中）TODO：居中操作合并
+		UpdateSurfaceInfo();
 
 		return true;
+	}
+	else
+	{
+		delete newpp;// 释放
+
+		SetForegroundWindow(hWndMain);
+		D3DErrorShow(hr, L"Load File", hWndMain);// 显示错误信息
+
+		return false;
 	}
 }
 
@@ -1558,13 +1353,13 @@ void SetWindowMode(UINT8 wmode)
 	{
 		HRGN hrgn;
 
-		RECT rgnrect;
-		rgnrect.left = rcClient.left - rcWnd.left;
-		rgnrect.top = 8;
-		rgnrect.right = WIDTHOF(rcWnd) - rgnrect.left + 1/*WIDTHOF(rcClient) + 9*/;
-		rgnrect.bottom = HEIGHTOF(rcWnd) - rgnrect.top + 1/*HEIGHTOF(rcClient) + 22*/;
-		hrgn = CreateRoundRectRgn(rgnrect.left, rgnrect.top
-			, rgnrect.right, rgnrect.bottom, 2, 2);//尺寸，要+1
+		RECT rcRgn;
+		rcRgn.left = rcClient.left - rcWindow.left;
+		rcRgn.top = rcClient.left - rcWindow.left;
+		rcRgn.right = WIDTHOF(rcWindow) - rcRgn.left + 1;
+		rcRgn.bottom = HEIGHTOF(rcWindow) - rcRgn.top + 1;
+		hrgn = CreateRoundRectRgn(rcRgn.left, rcRgn.top
+			, rcRgn.right, rcRgn.bottom, 2, 2);//尺寸，要+1
 		SetWindowRgn(hWndMain, hrgn, TRUE);
 
 		DeleteObject(hrgn);
@@ -1588,10 +1383,10 @@ inline void MaintainWindowStyle()
 		HRGN hrgn;
 
 		RECT rgnrect;
-		rgnrect.left = rcClient.left - rcWnd.left;
+		rgnrect.left = rcClient.left - rcWindow.left;
 		rgnrect.top = 8;
-		rgnrect.right = rcWnd.right - rcClient.left + 1;//rcWnd.right - rcClient.left + 1
-		rgnrect.bottom = HEIGHTOF(rcWnd) - rgnrect.top + 1;//HEIGHTOF(rcWnd) - rgnrect.top + 1
+		rgnrect.right = rcWindow.right - rcClient.left + 1;//rcWindow.right - rcClient.left + 1
+		rgnrect.bottom = HEIGHTOF(rcWindow) - rgnrect.top + 1;//HEIGHTOF(rcWindow) - rcRgn.top + 1
 		if (bWindowedFullscreen)
 			hrgn = CreateRectRgn(rgnrect.left, rgnrect.top
 				, rgnrect.right, rgnrect.bottom);
@@ -1608,7 +1403,10 @@ void MYCALL1 BeginDragPic()
 {
 	SetCapture(hWndMain);//允许鼠标在窗口外拖动
 
-	lastCursor = cursor;
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
+	ptLastCursor = ptClient;
 
 	bOnDrag = true;
 }
@@ -1628,9 +1426,13 @@ void MYCALL1 BeginDragZoomPic()
 {
 	SetCapture(hWndMain);//允许鼠标在窗口外拖动
 
-	surfer.SetBasePoint({ cursor.x - rcClient.left,cursor.y - rcClient.top });
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
+	surfer.SetBasePoint(ptClient);// 设置基准点
+	surfer.GetCurInfo(&ptClient);
 
-	lastCursor = cursor;
+	ptLastCursor = ptClient;
 
 	bOnDragzoom = true;
 }
@@ -1646,47 +1448,56 @@ void MYCALL1 EndDragZoomPic()
 		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
 }
 
-inline void MYCALL1 EnterCMDMode()
+void BeginDragRotatePic()
+{
+	SetCapture(hWndMain);//允许鼠标在窗口外拖动
+
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
+	surfer.SetBasePoint(ptClient);// 设置基准点
+	surfer.GetCurInfo(&ptClient);
+
+	ptLastCursor = ptClient;
+
+	bOnDragRotate = true;
+}
+
+void EndDragRotatePic()
+{
+	ReleaseCapture();
+
+	bOnDragRotate = false;
+
+	if (bNeedForceRenew)//如果拖动放大过程中需要更新图片，在结束时用合适方法重新生成surface
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+}
+
+void MYCALL1 EnterCMDMode()
 {
 	mode = MODE_CMD;
 	g_gui->ShowControl(INPUT_IN_CMD);
 	g_gui->SetFocus(INPUT_IN_CMD);
 }
 
-inline void MYCALL1 ExitCMDMode()
+void MYCALL1 ExitCMDMode()
 {
 	mode = MODE_PIC;
 	g_gui->SetControlText(INPUT_IN_CMD, L"");
 	g_gui->HideControl(INPUT_IN_CMD);
 }
 
-void MYCALL1 PicFitWnd()
-{
-	SF_SRFR(surfer.OnMove_Custom(surfer.GetBase()));
-
-	rcWnd.right = rcWnd.left + WinStdW + WinDiffW;
-	rcWnd.bottom = rcWnd.top + WinStdW * pLiveBmp->width / pLiveBmp->height + WinDiffH;
-	if (HEIGHTOF(rcWnd) > WinStdH)
-	{
-		rcWnd.bottom = rcWnd.top + WinStdH + WinDiffH;
-		rcWnd.right = rcWnd.left + WinStdH * pLiveBmp->width / pLiveBmp->height + WinDiffW;
-	}
-
-	SetWindowPos(hWndMain, HWND_TOP, rcWnd.left, rcWnd.top
-		, WIDTHOF(rcWnd), HEIGHTOF(rcWnd)
-		, 0);
-
-	surfer.GetCurInfo(&cursor, &rcClient);
-}
-
 void PicDock()
 {
-	POINT offBase = surfer.GetBase();
+	POINTi64 offBase = surfer.GetBase();
 	offBase.x = -offBase.x;
 	offBase.y = -offBase.y;
-	SF_SRFR(surfer.OnMove_Custom(offBase));
+	SF_SRFR(surfer.OnDrag_Custom(offBase));
 
-	surfer.GetCurInfo(&cursor, &rcClient);
+	if (bNeedForceRenew)
+		PostMessage(hWndMain, WM_SURFFORCERENEW, 0, 1);
+
+	UpdateSurfaceInfo();
 }
 
 void PicCenter()
@@ -1694,14 +1505,14 @@ void PicCenter()
 	surfer.SurfCenterPR(*pBufferW, *pBufferH);
 	SF_SR(surfer.SurfRenew(false));
 
-	surfer.GetCurInfo(&cursor, &rcClient);
+	UpdateSurfaceInfo();
 }
 
 void PicFit()
 {
 	SF_SR(surfer.SurfSuit(*pBufferW, *pBufferH));
 
-	surfer.GetCurInfo(&cursor, &rcClient);
+	UpdateSurfaceInfo();
 }
 
 bool FullScreen_Windowed(bool tofull, bool restore)
@@ -1711,15 +1522,15 @@ bool FullScreen_Windowed(bool tofull, bool restore)
 	bWindowedFullscreen = tofull;
 	if (bWindowedFullscreen)// 全屏化
 	{
-		rcOriginalWnd = rcWnd;
+		rcOriginalWnd = rcWindow;
 		RECT fullScreenRect;
-		fullScreenRect.left = rcWnd.left - rcClient.left;
-		fullScreenRect.top = rcWnd.top - rcClient.top + 22;
+		fullScreenRect.left = rcWindow.left - rcClient.left;
+		fullScreenRect.top = rcWindow.top - rcClient.top + 22;
 		if (bPureWnd)
 			fullScreenRect.top -= 22;
-		fullScreenRect.right = rcWnd.right
+		fullScreenRect.right = rcWindow.right
 			- rcClient.right + GetSystemMetrics(SM_CXSCREEN) + 12;
-		fullScreenRect.bottom = rcWnd.bottom
+		fullScreenRect.bottom = rcWindow.bottom
 			- rcClient.bottom + GetSystemMetrics(SM_CYSCREEN);
 		nLoops = GetSystemMetrics(SM_CXSCREEN);
 
@@ -1794,8 +1605,8 @@ bool PureWindow(bool topure)
 	SetWindowLong(hWndMain, GWL_STYLE, oldwindowlong);
 
 	// 使得窗口属性更改后，外观立刻更新
-	SetWindowPos(hWndMain, HWND_TOP, rcWnd.left, rcWnd.top
-		, WIDTHOF(rcWnd), HEIGHTOF(rcWnd)
+	SetWindowPos(hWndMain, HWND_TOP, rcWindow.left, rcWindow.top
+		, WIDTHOF(rcWindow), HEIGHTOF(rcWindow)
 		, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOSENDCHANGING);
 
 	return false;
@@ -1826,7 +1637,7 @@ void ToggleNight()
 
 inline void MYCALL1 SetRenderState()
 {
-	// 标准blend：D3DBLEND_SRCALPHA, D3DBLEND_INVSRCALPHA
+	// 标准 blend：D3DBLEND_SRCALPHA, D3DBLEND_INVSRCALPHA
 	mainDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 	mainDevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
 	mainDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
@@ -1838,68 +1649,73 @@ inline void MYCALL1 SetRenderState()
 	mainDevice->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 	mainDevice->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
 	mainDevice->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_TEXTURE);
-
-	mainDevice->SetRenderState(D3DRS_LIGHTING, TRUE); 
-	mainDevice->SetRenderState(D3DRS_SPECULARENABLE, TRUE);
 	//mainDevice->SetRenderState(D3DRS_AMBIENT,
 	//	D3DCOLOR_COLORVALUE(0.3f, 0.3f, 0.3f, 1.0f));
 
-	mainDevice->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);//默认D3DMCS_COLOR1
-	mainDevice->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
+	if (decorate && bDecorateOn)
+	{
+		mainDevice->SetRenderState(D3DRS_LIGHTING, TRUE);
+		mainDevice->SetRenderState(D3DRS_SPECULARENABLE, TRUE);
 
-	mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-	mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
-	//mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
-	mainDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//D3DCULL_NONE,D3DCULL_CCW
+		mainDevice->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);// 默认 D3DMCS_COLOR1
+		mainDevice->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);// 默认 D3DMCS_MATERIAL
+		//mainDevice->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);// 默认 D3DMCS_COLOR2
+		//mainDevice->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);// 默认 D3DMCS_MATERIAL
+
+		mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+		//mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
+		//mainDevice->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+		//mainDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//D3DCULL_NONE,D3DCULL_CCW
+	}
 }
 
 inline void SetView()
 {
-	// mesh方法：动态调整视角
-	if (decorate)
-	{
-		D3DXVECTOR3 eye;
-		D3DXVECTOR3 at;
-		float eyeradius = 60.0f;//40.0f
-		eye = D3DXVECTOR3(0.0f, -eyeradius, 0.0f);
-		at = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
-		D3DXMATRIXA16 matView;
-		D3DXMatrixLookAtLH(&matView, &eye, &at, &D3DXVECTOR3(0.0f, 0.0f, -1.0f));
-		mainDevice->SetTransform(D3DTS_VIEW, &matView);
-		D3DXMATRIXA16 proj;
-		D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI / 3
-			, (float)WIDTHOF(rcClient) / HEIGHTOF(rcClient)
-			, 0.02f, 100.0f);
-		mainDevice->SetTransform(D3DTS_PROJECTION, &proj);
+	D3DXVECTOR3 eye;
+	D3DXVECTOR3 at;
+	D3DXVECTOR3 up;
+	float eyeradius = 60.0f;//40.0f
+	eye = D3DXVECTOR3(0.0f, 0.0f, -eyeradius);
+	at = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+	up = D3DXVECTOR3(0.0f, 1.0f, 0.0f);
+	D3DXMATRIXA16 matView;
+	D3DXMatrixLookAtLH(&matView, &eye, &at, &up);
+	mainDevice->SetTransform(D3DTS_VIEW, &matView);
+	D3DXMATRIXA16 proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI / 3
+		, (float)WIDTHOF(rcClient) / HEIGHTOF(rcClient)
+		, 0.02f, 100.0f);
+	mainDevice->SetTransform(D3DTS_PROJECTION, &proj);
 
-		time_t nowtick = GetTickCount();
-		const float angle = nowtick > decorateTick ? 0.0014f*(nowtick - decorateTick) : 0;
-		decorateTick = nowtick;
-		D3DXMATRIX rotnew;
-		D3DXMatrixRotationZ(&rotnew, angle);
-		D3DXMatrixMultiply(&matWorld, &matWorld, &rotnew);
-		mainDevice->SetTransform(D3DTS_WORLD, &matWorld);
-	}
+	time_t nowtick = GetTickCount();
+	const float angle = nowtick > decorateTick ? 0.0014f*(nowtick - decorateTick) : 0;
+	decorateTick = nowtick;
+
+	D3DXMATRIX rotnew;
+	D3DXMatrixRotationY(&rotnew, -angle);// 逆时针旋转，取负号（Y轴朝上）
+	//D3DXMatrixTranslation(&rotnew, -0.1, 0, 0);
+	D3DXMatrixMultiply(&matWorld, &matWorld, &rotnew);
+	mainDevice->SetTransform(D3DTS_WORLD, &matWorld);
 }
 
 inline void SetLight()
 {
-	if (decorate)
-	{
-		light.Type = D3DLIGHT_POINT;
-		light.Position = D3DXVECTOR3(-12.0f, -20.0f, -4.0f);
-		light.Range = 30.0f;
-		light.Diffuse.r = 1.0f;
-		light.Diffuse.g = 1.0f;
-		light.Diffuse.b = 1.0f;
-		light.Ambient.r = 0.6f;
-		light.Ambient.g = 0.6f;
-		light.Ambient.b = 0.6f;
-		light.Attenuation0 = 0.5f;
-		light.Attenuation1 = 0.04f;
-		mainDevice->SetLight(0, &light);
-		mainDevice->LightEnable(0, TRUE);
-	}
+	light.Type = D3DLIGHT_POINT;
+	float radius = 20.0f;
+	D3DXVECTOR3 vLightDir = D3DXVECTOR3(-4.0f, -1.0f, -5.0f);
+	D3DXVec3Normalize(&vLightDir, &vLightDir);
+	light.Position = vLightDir*radius;// 光源在观察者同侧，左部偏下
+	light.Range = 35.0f;
+	float iD = 1.0f;
+	float iA = 0.6f;
+	float iS = 1.0f;
+	light.Diffuse = { iD,iD,iD,1.0f };
+	light.Ambient = { iA,iA,iA,1.0f };
+	light.Specular = { iS,iS,iS,1.0f };
+	light.Attenuation0 = 0.5f;
+	light.Attenuation1 = 0.04f;
+	mainDevice->SetLight(0, &light);
+	mainDevice->LightEnable(0, TRUE);
 }
 
 bool InfoRender()
@@ -1914,9 +1730,14 @@ bool InfoRender()
 	// 第1部分信息显示（图片信息）
 	// d3dfont1->DrawTextW(100, 200, COLOR_TEXT1, infowstr0, 0);//测试高速字体绘制
 	if (pFontPic != NULL)
+	{
 		pFontPic->DrawTextW(NULL, picInfoStr, -1, &rcPic, DT_LEFT | DT_NOCLIP, COLOR_TEXT1);
+	}
 
 	// 窗口信息 & surfer信息
+	POINT ptClient;
+	GetCursorPos(&ptClient);
+	ScreenToClient(hWndMain, &ptClient);
 	StringCchPrintfW(infowstr, 521, L"MODE: %d\n\
 		FPS: %.2f/%.2f (%.2f)  %.3fms   %lld\n\
 		MEM: %.1fMB,  %.1fMB\n\
@@ -1928,7 +1749,7 @@ bool InfoRender()
 		, fps, avgFps, cvgFps, frameTime, nLoops
 		, memoryIn, memoryOut
 		, *pBufferW, *pBufferH
-		, cursor.x - rcClient.left, cursor.y - rcClient.top
+		, ptLastCursor.x, ptLastCursor.y
 		, procTime
 		, pD3DWnd->GetMultiSample());
 	StringCchCat(infowstr, 512, L"   -    -    -    -   \n");
@@ -1965,7 +1786,7 @@ bool InfoRender()
 			, yesno2[surfer.IsSurfNotNull()], yesno2[bOnZoom]
 			, yesno2[bDragging], yesno2[bDragzooming]
 			, yesno2[bOnSize], yesno2[surfer.bClip]
-			, yesno2[surfer.bSurfClipped], yesno2[surfer.bPicClipped]
+			, yesno2[surfer.GetBoolSurfClipped()], yesno2[surfer.bPicClipped]
 			, yesno2[surfer.bOutClient], yesno2[bSurfRenew]);
 
 		// 第3部分信息显示
@@ -1992,7 +1813,7 @@ void MYCALL1 Render()
 		g_gui->RenderBack();
 
 	// 装饰绘制
-	/*if (decorate)
+	if (decorate && bDecorateOn)
 	{
 		SetView();
 		mainDevice->SetMaterial(&material);
@@ -2002,7 +1823,7 @@ void MYCALL1 Render()
 		mainDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);
 		decorate->DrawSubset(0);
 		mainDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-	}*/
+	}
 
 	// 图片绘制
 	hr = surfer.Render();
@@ -2013,19 +1834,6 @@ void MYCALL1 Render()
 	// D3DGUI
 	if (g_gui != NULL)
 		g_gui->Render();//D3DBLEND_INVSRCCOLOR,D3DBLEND_INVSRCCOLOR;D3DBLEND_ZERO,D3DBLEND_INVDESTCOLOR
-
-	// 颜色块
-	/*if (colorblockon && colorblock)
-	{
-		mainDevice->SetTexture(NULL, NULL);
-
-		mainDevice->SetStreamSource(0, colorblockback, 0, sizeof(FVF2));
-		mainDevice->SetFVF(FVF_2CPD);
-		mainDevice->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 20);
-		mainDevice->SetStreamSource(0, colorblock, 0, sizeof(FVF2));
-		mainDevice->SetFVF(FVF_2CPD);
-		mainDevice->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 20);
-	}*/
 
 	mainDevice->EndScene();
 	hr = mainDevice->Present(NULL, NULL, NULL, NULL);
@@ -2047,8 +1855,7 @@ bool ResetDevice()
 
 	// 修改device长宽
 	OnLostDevice();
-	bool result = OnResetDevice2(WIDTHOF(rcClient), HEIGHTOF(rcClient));
-	//bool result = OnResetDevice();
+	bool result = OnResetDevice();
 
 	PostResetDevice();
 
@@ -2101,9 +1908,12 @@ bool OnResetDevice2(int clientw, int clienth)
 
 inline void PostResetDevice()
 {
-	// D3D更新,设备丢失后必做！yeah
-	SetLight();
-	SetView();
+	// D3D更新,设备丢失后必做
+	if (decorate && bDecorateOn)
+	{
+		SetLight();
+		SetView();
+	}
 	SetRenderState();
 }
 
@@ -2151,6 +1961,12 @@ void CALLBACK GUICallback(int ID, WPARAM wp, LPARAM lp)
 			//	MessageBox(hWndMain, strInfo, L"aid result", 0);
 			//}RECT rcMain;
 
+			if (startup == NULL)
+			{
+				startup = new D3DWnd;
+				if (startup == NULL)
+					break;
+			}
 			RECT rcMain;
 			GetWindowRect(hWndMain, &rcMain);
 			float fBias = 0.618f;
@@ -2205,18 +2021,6 @@ void CALLBACK CMDProc(WCHAR *wstr)
 	else if (_wcsicmp(wstr, L"open") == 0)
 	{
 		OpenFileWin();
-	}
-	else if (_wcsicmp(wstr, L"maxwin") == 0)
-	{
-		SendMessage(hWndMain, WM_SYSCOMMAND, SC_MAXIMIZE, 0);//SC_RESTORE
-	}
-	else if (_wcsicmp(wstr, L"rstwin") == 0)
-	{
-		SendMessage(hWndMain, WM_SYSCOMMAND, SC_RESTORE, 0);
-	}
-	else if (_wcsicmp(wstr, L"minwin") == 0)
-	{
-		SendMessage(hWndMain, WM_SYSCOMMAND, SC_MINIMIZE, 0);
 	}
 	else if (_wcsicmp(wstr, L"exit") == 0)
 	{
@@ -2277,28 +2081,6 @@ void CALLBACK CMDProc(WCHAR *wstr)
 				surfRenewTick = GetTickCount();
 		}
 	}
-	else if (_wcsicmp(wstr, L"inva") == 0)
-	{
-		if (bPicOn)
-		{
-			pLiveBmp->InverseAlpha();
-			bSurfRenew = surfer.SurfRenew(false);
-
-			if (bSurfRenew)
-				surfRenewTick = GetTickCount();
-		}
-	}
-	else if (_wcsicmp(wstr, L"inv4") == 0)
-	{
-		if (bPicOn)
-		{
-			pLiveBmp->InverseAll();
-			bSurfRenew = surfer.SurfRenew(false);
-
-			if (bSurfRenew)
-				surfRenewTick = GetTickCount();
-		}
-	}
 	else if (_wcsicmp(wstr, L"hsv") == 0)
 	{
 		if (bPicOn)
@@ -2308,6 +2090,21 @@ void CALLBACK CMDProc(WCHAR *wstr)
 
 			if (bSurfRenew)
 				surfRenewTick = GetTickCount();
+		}
+	}
+	else if (_wcsicmp(wstr, L"diff") == 0)
+	{
+		if (bPicOn)
+		{
+			BMP *pre = GetPrevPic();
+			if (pre != NULL)
+			{
+				pLiveBmp->Diff(pre);
+				bSurfRenew = surfer.SurfRenew(false);
+
+				if (bSurfRenew)
+					surfRenewTick = GetTickCount();
+			}
 		}
 	}
 	else
@@ -2322,22 +2119,16 @@ void CALLBACK CMDProc(WCHAR *wstr)
 		{
 			if (bPicOn && num > ZOOM_MIN)
 			{
-				POINT base;
-				base.x = cursor.x - rcClient.left;
-				base.y = cursor.y - rcClient.top;
-				surfer.SurfSetZoomPR(num);
-				bSurfRenew = surfer.SurfZoomRenew(&base, true, false);//放大，调整surface位置
-				
-				//标志
-				if (bSurfRenew)
-					surfRenewTick = GetTickCount();
+				surfer.SurfSetZoomPR(num, true);
+				SF_SR(surfer.SurfRenew(false));
+
 				bOnZoom = true;
 				zoomTick = GetTickCount();
 			}
 		}
 	}
-	//获取surface信息（图片更新后，surface信息也立即更新）
-	surfer.GetCurInfo(&cursor, &rcClient);
+	//获取 surface 信息（图片更新后，surface 信息也立即更新）
+	UpdateSurfaceInfo();
 
 	QueryPerformanceCounter(&e);
 	procTime = 1000.0f*(e.QuadPart - s.QuadPart) / (float)freq.QuadPart;

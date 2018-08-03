@@ -1,7 +1,12 @@
 #pragma once
 
-#include<windows.h>
-#include<strsafe.h>
+#include <time.h>
+#include <windows.h>
+#include <strsafe.h>
+
+
+#define LOSHORT(l)           ((SHORT)(((DWORD_PTR)(l)) & 0xffff))
+#define HISHORT(l)           ((SHORT)((((DWORD_PTR)(l)) >> 16) & 0xffff))
 
 typedef struct
 {
@@ -10,12 +15,12 @@ typedef struct
 }WNDINFO, *LPWNDINFO;
 
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam);
-
 HWND GetHwndByProcessId(DWORD dwProcessId);
-
 HWND GetHwndByPid(DWORD dwProcessID);
 
-bool TimeString(WCHAR *dest, size_t size, double msec);
+bool DateString(WCHAR *dest, int size);
+bool TimeString(WCHAR *dest, int size);
+bool MilliSecString(WCHAR *dest, size_t size, double msec);
 
 //--------------------------------------------------------------------------------------
 // A growable array
@@ -101,22 +106,53 @@ public:
 
 		return S_OK;
 	}
-	HRESULT Insert(int nIndex, const TYPE& value);
+	HRESULT Insert(int nIndex, const TYPE& value)
+	{
+		HRESULT hr;
+
+		// Validate index
+		if (nIndex < 0 ||
+			nIndex > m_nSize)
+		{
+			//assert(false);
+			return E_INVALIDARG;
+		}
+
+		// Prepare the buffer
+		if (FAILED(hr = SetSizeInternal(m_nSize + 1)))
+			return hr;
+
+		// Shift the array
+		MoveMemory(&m_pData[nIndex + 1], &m_pData[nIndex], sizeof(TYPE) * (m_nSize - nIndex));
+
+		// Construct the new element
+		::new (&m_pData[nIndex]) TYPE;
+
+		// Set the value and increase the size
+		m_pData[nIndex] = value;
+		++m_nSize;
+
+		return S_OK;
+	}
 	HRESULT SetAt(int nIndex, const TYPE& value);
 	TYPE& GetAt(int nIndex) const
 	{
-		/*assert(nIndex >= 0 && nIndex < m_nSize);*/ return m_pData[nIndex];
+		/*assert(nIndex >= 0 && nIndex < m_nSize);*/
+		return m_pData[nIndex];
 	}
 	TYPE GetAtSafe(int nIndex) const
 	{
-		/*assert(nIndex >= 0 && nIndex < m_nSize);*/ return m_pData[nIndex];
+		if (nIndex >= 0 && nIndex < m_nSize)
+			return m_pData[nIndex];
+		else
+			return TYPE();
 	}
 	TYPE* GetPAt(int nIndex) const//自己加的
 	{
-		if (nIndex < 0 || nIndex >= m_nSize)
-			return NULL;
-		else
+		if (nIndex >= 0 && nIndex < m_nSize)
 			return (TYPE*)&(m_pData[nIndex]);
+		else
+			return NULL;
 	}
 	int     GetSize() const
 	{
@@ -185,6 +221,15 @@ public:
 		m_nSize = 0;
 	}
 
+	// 自己加的
+	bool	IsEmpty() const
+	{
+		return m_nSize <= 0;
+	}
+	int		GetCursor()
+	{
+		return m_nCursor;
+	}
 	int		SetCursor(int cursor)
 	{
 		if (cursor >= 0 && cursor < m_nSize)
@@ -207,6 +252,7 @@ public:
 	{
 		m_nCursor = max(m_nSize - 1, 0);
 	}
+
 
 protected:
 	TYPE* m_pData;      // the actual array of samples
@@ -261,3 +307,18 @@ protected:
 		return S_OK;
 	}
 };
+
+//--------------------------------------------------------------------------------------
+template<typename TYPE> HRESULT CGrowableArray <TYPE>::SetAt(int nIndex, const TYPE& value)
+{
+	// Validate arguments
+	if (nIndex < 0 ||
+		nIndex >= m_nSize)
+	{
+		//assert(false);
+		return E_INVALIDARG;
+	}
+
+	m_pData[nIndex] = value;
+	return S_OK;
+}

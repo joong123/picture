@@ -52,27 +52,27 @@ struct FVF3
 class D3DWnd {
 private:
 	RECT rcClient;
-	RECT windowrect;
+	RECT rcWindow;
 
 	HWND hWnd;
-	HINSTANCE hinst;
+	HINSTANCE hInst;
 private:
 	LPDIRECT3D9	lpD3D;
-	D3DPRESENT_PARAMETERS d3dpp;
+	D3DPRESENT_PARAMETERS d3dParam;
 	LPDIRECT3DDEVICE9 device;
-	D3DDISPLAYMODE displaymode;				//显示模式
+	D3DDISPLAYMODE displayMode;				//显示模式
 	D3DCAPS9 caps;							//设备能力
 	D3DMULTISAMPLE_TYPE mst;
 	int vertexprocessing;					//vertexprocessing方式
 public:
 	D3DWnd() {
 		hWnd = NULL;
-		hinst = NULL;
+		hInst = NULL;
 
 		lpD3D = NULL;
-		memset(&d3dpp, 0, sizeof(d3dpp));
+		memset(&d3dParam, 0, sizeof(d3dParam));
 		device = NULL;
-		memset(&displaymode, 0, sizeof(displaymode));
+		memset(&displayMode, 0, sizeof(displayMode));
 		memset(&caps, 0, sizeof(caps));
 	}
 //callback
@@ -104,12 +104,8 @@ public:
 	);
 	bool CreateMeshFVF(LPD3DXMESH *ppmesh, void *vertice, void *index, UINT16 sizev, UINT16 sizei, DWORD numfaces, DWORD numvertices
 		, DWORD options);
-	static bool ChangeMeshColor_tail(LPD3DXMESH *ppmesh, D3DCOLOR color);
 	static bool RefreshVertexBuffer(LPDIRECT3DVERTEXBUFFER9 *vb, void *vertice);
-	bool ChangeVBColor_tail(LPDIRECT3DVERTEXBUFFER9 *vb, D3DCOLOR color, UINT16 sizev, int nums = -1);
-	bool CreateVertexBuffer_Custom1(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int r = 1, D3DCOLOR color = 0);
-	bool CreateVertexBuffer_Custom2(LPDIRECT3DVERTEXBUFFER9 *vb, int x = 0, int y = 0, int w = 1, int h = 1, D3DCOLOR color = 0);
-
+	
 	bool CreateMesh_Custom1(LPD3DXMESH *ppmesh);
 	void CreateSphere(ID3DXMesh ** obj, int finess, float radius, D3DCOLOR color, float height);
 
@@ -117,11 +113,11 @@ public:
 	LPDIRECT3DDEVICE9 GetDevice();
 	inline UINT * GetPBufferWidth()
 	{
-		return &d3dpp.BackBufferWidth;
+		return &d3dParam.BackBufferWidth;
 	}
 	inline UINT * GetPBufferHeight()
 	{
-		return &d3dpp.BackBufferHeight;
+		return &d3dParam.BackBufferHeight;
 	}
 	inline bool OnLostDevice()
 	{
@@ -137,10 +133,10 @@ public:
 
 		Get2WndRect();
 
-		d3dpp.BackBufferWidth = clientw;
-		d3dpp.BackBufferHeight = clienth;
+		d3dParam.BackBufferWidth = clientw;
+		d3dParam.BackBufferHeight = clienth;
 
-		if (FAILED(device->Reset(&d3dpp)))
+		if (FAILED(device->Reset(&d3dParam)))
 		{
 			return false;
 		}
@@ -154,17 +150,17 @@ public:
 
 		Get2WndRect();
 
-		d3dpp.BackBufferWidth = WIDTHOF(rcClient);
-		d3dpp.BackBufferHeight = HEIGHTOF(rcClient);
+		d3dParam.BackBufferWidth = WIDTHOF(rcClient);
+		d3dParam.BackBufferHeight = HEIGHTOF(rcClient);
 
-		if (FAILED(device->Reset(&d3dpp)))
+		if (FAILED(device->Reset(&d3dParam)))
 		{
 			return false;
 		}
 
 		return true;
 	}
-	D3DMULTISAMPLE_TYPE GetMultiSample()
+	inline D3DMULTISAMPLE_TYPE GetMultiSample()
 	{
 		return mst;
 	}
@@ -174,11 +170,4 @@ public:
 	void DisplayAdapter();
 };
 
-static char * print_guid(GUID ID) {
-	char * str = (char *)malloc(39);
-	sprintf_s(str, 39, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
-		ID.Data1, ID.Data2, ID.Data3,
-		ID.Data4[0], ID.Data4[1], ID.Data4[2], ID.Data4[3],
-		ID.Data4[4], ID.Data4[5], ID.Data4[6], ID.Data4[7]);
-	return str;
-}
+char* print_guid(GUID ID);

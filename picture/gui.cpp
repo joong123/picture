@@ -631,7 +631,6 @@ byte CGUIControl::HandleMouse(UINT uMsg, POINT pt, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_MOUSEMOVE:
-		// 鼠标事件处理
 		if (inside)
 		{
 			if (state == GUI_STATE_OUT)
@@ -1546,11 +1545,17 @@ bool D3DGUIButton::Render(LPDIRECT3DDEVICE9 dev)
 	}
 
 	// 设置二层纹理
-	if (displayEvent == GUI_EVENT_LBUTTONOUTUP
-		|| displayEvent == GUI_EVENT_LBUTTONDOWN)
-		dev->SetTexture(0, texDown);
-	else
+	if (state == GUI_STATE_OUT)
+	{
+		if (displayEvent == GUI_EVENT_MOUSELEAVE)
+			dev->SetTexture(0, texOver);
+		else if (displayEvent == GUI_EVENT_LBUTTONOUTUP)
+			dev->SetTexture(0, texDown);
+	}
+	else if (state == GUI_STATE_OVER)
 		dev->SetTexture(0, texOver);
+	else if (state == GUI_STATE_DOWN)
+		dev->SetTexture(0, texDown);
 
 	// 绘制第二图层
 	ChangeAlpha(model, ROUNDF_BYTE(alpha));//设置实时透明度

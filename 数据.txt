@@ -1,0 +1,18 @@
+photoshop缩放mipmap边界：
+0.64,0.32,0.16,0.08
+0.04,0.02,0.01,0.005
+
+自己数据：
+正常图片，0.6倍左右一下NN重采样开始效果差
+
+【NN插值】：
+AUXTYPE tempZ = (AUXTYPE)width / zoomW;
+tmpOffX = ptSurfOffset.x + (AUXTYPE)0.5;
+不需要如下形式
+(int) pixelPosX[j] = (int)((j + tmpOffX)*(AUXTYPE)width / zoomW);
+可以用中间变量：
+(int) pixelPosX[j] = (int)((j + tmpOffX)*tempZ);
+NN插值定位：计算的是新像素中点相对原图其实像素边界的位置，似乎可以忽略超出边界的问题？（测试中暂未出现问题）
+single插值：
+问题：可能导致，图像某些部分清晰某些部分模糊，不均匀
+(AUXTYPE) pixelPosX[j] = (j + tmpOffX)*(AUXTYPE)width / zoomW - (AUXTYPE)0.5;

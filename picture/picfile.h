@@ -16,7 +16,7 @@ using std::ios;
 typedef unsigned char byte;
 typedef wchar_t WCHAR;
 
-inline void WORD_L2BEndian(byte *bp)//WORD_L2BEndian奇特问题
+inline void WORD_L2BEndian(byte *bp)
 {
 	byte temp = bp[0];
 	bp[0] = bp[1];
@@ -32,6 +32,7 @@ inline void DWORD_L2BEndian(byte *bp)
 	bp[2] = temp;
 }
 
+// TODO：待完善
 struct PicInfo {
 	short pictype;		//图片文件类型（需要解析）
 	UINT32 width;		//图片尺寸
@@ -54,5 +55,4 @@ struct PicInfo {
 	}
 
 	bool ReadFile(WCHAR file[]);
-	bool GetSize(WCHAR file[]);
 };

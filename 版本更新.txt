@@ -15,7 +15,7 @@ d3dwnd创建窗口函数加入class style参数
 D3D使用RHW方式绘制，并动态修改buffer内容，不release重建
 修改主循环中事件捕捉方式
 主循环中帧率限制放到计数前
-增加multisample调整，但会让图片不显示
+增加multisample调整，但选择multisample会让图片不显示，D3D内部限制
 使用haspic标志
 timebeginperiod（1）精确定时
 修改D3DGUI的控件类
@@ -30,8 +30,91 @@ d3dgui一个控件阻塞控制
 CGUIControl改为虚函数封装类
 添加控件中任何失败路径都正确处理
 d3dgui和gdigui整合
+20171130
+图片稳定缩放，增加缩放比例点ptScaleX、ptScaleY
+缩放基准点ptZoomBase
+增加POINTi64类型
+将surfer多数float成员变量上升到double
+全局cursor变量去除
+surface更新机制排错，强制更新消息发送的时机等
+缩放速率平衡（放大缩小速率，暂时还不算平衡）
+缩放倍率限制，使zoomW、zoomH不超过类型上限（还不稳定，可能还会溢出）
+模块分化，分出到不同文件，extern声明【长期进行】
+将surfer某些变量上升为INT64和double，增加放大倍率
+surfrenew中更新失败对surface的清除，释放
+BMP文件中inline函数取消inline，放到cpp文件中【长期进行】
+nn 的 rotate版本缩放，同时包括rotate配套计算
+20171213
+自定义鼠标样式
+20171215
+zoom、rotate值改变引起base改变分离处理，调整zoom、rotate函数
+picpacklist 容量扩充模仿 DX的CGrowablearray
 
+【待优化】：
+1.多线程读取文件，不卡主线程
+3.图片快速持续缩放，即使重新生成图片只需2，3毫秒以内，但是帧率还会略有降低。(鼠标事件处理耗时？)
+16.INT64和浮点计算处先转换为long double
+17.快速向下滑滚轮，突然放大到超大（难以重现）
+18.zoom调整和后续base调整合并？整合？
+19.surf重采样前先清空全图？
+22.窗口尺寸跳变（如最大化，全屏）时，图片会闪烁3下，由于windows重绘机制和d3d没有完美适应
+24.程序退出时在主循环内,消息处理后崩溃？
+0x777FE8FB (ntdll.dll) (picture.exe 中)处有未经处理的异常: 0xC0000374: 堆已损坏。 (参数: 0x77834270)。
+28.surface像素批量更新
+33.●计算zoomw zoomh使所有像素包含在内再传递给重采样算法
+36.去除循环内判断溢出越界，比如single里末尾溢出像素判断
+38.dragzoom，把图片缩到很小，鼠标在外围dragzoom，一开始图片位置会跳变一下
+39.AREA采样的后边界也用数组预保存
+40.SURFER类里pbufferWH去除，麻烦的指针，用别的方法代替
+41.zoomrenew和rotaterenew的位置计算分离
+42.按一下alt键程序暂停？
+44.信息更新优化，使用简化
+45.CalcMapInfo 使用简化
+46.PostZoomChange、OnSurfPosChange之类改名
+47.MessageBox后的断点无法捕捉
+48.重采样中MessageBox后会崩溃
+49.POINTi64的拷贝构造函数到底在哪里进入的
+50.mywcscpy换成stringcchcopy
+51.有时候，偶尔，窗口最大化画面会卡住
+52.picmove更新两次
+53.添加图片时初始化适应画面的缩放倍率
+54.backgroundcolor 合并到surfer
+55.surf 强制更新不抢占连续的键盘事件，鼠标事件
+56.有时候没按键，但是GetAsyncKeyState就是有值的
 
-待优化：
-多线程读取文件，不卡主线程
-aid窗口时，右键缩放图片造成图片缩放倍率跳变
+【架构待优化】：4.按下鼠标左键开始拖动图片，拖动到鼠标离开窗口时，单击一下鼠标右键，再抬起左键，此时抬起左键事件不会被程序捕捉。由于没有一个统一的系统的鼠标和相关事件处理
+5.没有对键盘事件的统一处理
+	bOnRotate bOnZoom等标志统一处理需要：setcapture、gui不响应、ptLastCursor设置
+	surfer数据设置
+6.可以动态分配4.5.鼠标键盘事件对应的事件
+7.picpacklist使用通用模板，简化图片切换，增强通用性
+8.使用智能指针处理picpack或bmp
+10.主代码里的不同模块分开来，分成不同模块代码文件
+23.命令行的统一处理，合理处理，哈希表？
+25.增加图片buffer（特殊控件）
+26.设置图片条件更新
+27.设置全局条件更新
+29.子窗口模拟右键菜单：子窗口的d3dgui系统的重绘问题，右键时目标得记录，选择选项后操作！
+30.子窗口封装？
+
+【待研究】
+9.POINT &和*哪个块
+11.surfer类用inline函数，超过200行，是否对效率有帮助
+12.有些inline函数定义在cpp文件里为什么没问题
+13.类成员函数和普通函数（普通函数加一个类对象指针）的效率往往是后者更高
+15.vs每次打开项目要重新加载
+21.byte pixel[4];将指针直接设为目标图像素？
+31.图像数据类型确定
+35.除法乘法效率，除法可否事先计算，用乘法代替。
+36.MMRESULT 多媒体计时器
+34.进阶功能：xy方向不同缩放值，用于图片尺寸自由变换
+32.图像处理：画线，中间白边上半透明等各种花式（单段半透明不重叠，相邻段不重叠。）
+43.自定义点旋转图片，自由旋转加缩放图片（拉伸）
+55.旋转和缩放某些缩小倍率下速度慢，可以使用先生成一张放大较大的（必然大于1倍放大，否则没意义，还不如直接对原图近邻更差）插值图，缩小重采样时只需对这个大图进行近邻采样。（貌似很机智）
+
+const long double Tb = ((long double)9607679205057058.0 * 960);
+const INT64 T = ((long double)9607679205057058.0 * 960);
+Tb没溢出INT64_MAX而T溢出了。
+
+Sample_Single函数中这行frontxbias = (frontxbias - auxfront) * aux;
+//TODOPLAY:此行的aux改为zoom，并auxz改为0.3，AUXTYPE改为float，可以体验魔幻效果

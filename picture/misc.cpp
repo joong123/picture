@@ -10,52 +10,6 @@
 
 
 
-//--------------------------------------------------------------------------------------
-template<typename TYPE> HRESULT CGrowableArray <TYPE>::Insert(int nIndex, const TYPE& value)
-{
-	HRESULT hr;
-
-	// Validate index
-	if (nIndex < 0 ||
-		nIndex > m_nSize)
-	{
-		assert(false);
-		return E_INVALIDARG;
-	}
-
-	// Prepare the buffer
-	if (FAILED(hr = SetSizeInternal(m_nSize + 1)))
-		return hr;
-
-	// Shift the array
-	MoveMemory(&m_pData[nIndex + 1], &m_pData[nIndex], sizeof(TYPE) * (m_nSize - nIndex));
-
-	// Construct the new element
-	::new (&m_pData[nIndex]) TYPE;
-
-	// Set the value and increase the size
-	m_pData[nIndex] = value;
-	++m_nSize;
-
-	return S_OK;
-}
-
-
-//--------------------------------------------------------------------------------------
-template<typename TYPE> HRESULT CGrowableArray <TYPE>::SetAt(int nIndex, const TYPE& value)
-{
-	// Validate arguments
-	if (nIndex < 0 ||
-		nIndex >= m_nSize)
-	{
-		assert(false);
-		return E_INVALIDARG;
-	}
-
-	m_pData[nIndex] = value;
-	return S_OK;
-}
-
 
 //--------------------------------------------------------------------------------------
 // Searches for the specified value and returns the index of the first occurrence
@@ -213,9 +167,9 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //
 //
 ////--------------------------------------------------------------------------------------
-//// Uniscribe -- Analyse() analyses the string in the buffer
+//// Uniscribe -- svm_analyse_node() analyses the string in the buffer
 ////--------------------------------------------------------------------------------------
-//HRESULT CUniBuffer::Analyse()
+//HRESULT CUniBuffer::svm_analyse_node()
 //{
 //	if (m_Analysis)
 //		_ScriptStringFree(&m_Analysis);
@@ -251,7 +205,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //
 //
 ////--------------------------------------------------------------------------------------
-//WCHAR& CUniBuffer::operator[](int n)  // No param checking
+//WCHAR& CUniBuffer::operator[](int n)  // No SVMParam checking
 //{
 //	// This version of operator[] is called only
 //	// if we are asking for write access, so
@@ -396,7 +350,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //
 //	HRESULT hr = S_OK;
 //	if (m_bAnalyseRequired)
-//		hr = Analyse();
+//		hr = svm_analyse_node();
 //
 //	if (SUCCEEDED(hr))
 //		hr = _ScriptStringCPtoX(m_Analysis, nCP, bTrail, pX);
@@ -413,7 +367,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //
 //	HRESULT hr = S_OK;
 //	if (m_bAnalyseRequired)
-//		hr = Analyse();
+//		hr = svm_analyse_node();
 //
 //	if (SUCCEEDED(hr))
 //		hr = _ScriptStringXtoCP(m_Analysis, nX, pCP, pnTrail);
@@ -440,7 +394,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //	*pPrior = nCP;  // Default is the char itself
 //
 //	if (m_bAnalyseRequired)
-//		if (FAILED(Analyse()))
+//		if (FAILED(svm_analyse_node()))
 //			return;
 //
 //	const SCRIPT_LOGATTR* pLogAttr = _ScriptString_pLogAttr(m_Analysis);
@@ -472,7 +426,7 @@ template<typename TYPE> int CGrowableArray <TYPE>::LastIndexOf(const TYPE& value
 //
 //	HRESULT hr = S_OK;
 //	if (m_bAnalyseRequired)
-//		hr = Analyse();
+//		hr = svm_analyse_node();
 //	if (FAILED(hr))
 //		return;
 //
@@ -559,7 +513,35 @@ HWND GetHwndByPid(DWORD dwProcessID)
 	return hWnd;
 }
 
-bool TimeString(WCHAR *dest, size_t size, double msec)
+bool DateString(WCHAR * dest, int size)
+{
+	if (dest == NULL || size < 1)
+		return false;
+
+	time_t rawtime;
+	tm * timeinfo = new tm;
+	time(&rawtime);
+	localtime_s(timeinfo, &rawtime);
+	wcsftime(dest, size, L"%Y%m%d", timeinfo);
+
+	return true;
+}
+
+bool TimeString(WCHAR * dest, int size)
+{
+	if (dest == NULL || size < 1)
+		return false;
+
+	time_t rawtime;
+	tm * timeinfo = new tm;
+	time(&rawtime);
+	localtime_s(timeinfo, &rawtime);
+	wcsftime(dest, size, L"%Y-%m-%d %H:%M:%S", timeinfo);
+
+	return true;
+}
+
+bool MilliSecString(WCHAR *dest, size_t size, double msec)
 {
 	if (dest == NULL || size <= 0)
 		return false;

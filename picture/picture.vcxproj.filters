@@ -54,6 +54,12 @@
     <ClInclude Include="misc.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="wndaid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="picpacklist.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -81,6 +87,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="misc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="wndaid.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="picpacklist.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

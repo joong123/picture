@@ -3,16 +3,17 @@
 
 bool PicInfo::ReadFile(WCHAR file[])
 {
+	// 文件名为空
 	if (!file)
 		return false;
 
 	ifstream in(file, ios::_Nocreate | ios::binary | 0x02);
-	if (!in.is_open())
+	if (!in.is_open())// 打开失败
 		return false;
 
 	in.unsetf(ios::skipws);
 
-	memset(this, 0, sizeof(*this));//清空
+	memset(this, 0, sizeof(*this));// 清空
 	width = height = 0;
 
 	in.seekg(0, ios::end);
@@ -24,7 +25,7 @@ bool PicInfo::ReadFile(WCHAR file[])
 
 	if (*(WORD*)identifier == (WORD)0x4D42)
 	{
-		//BMP
+		// BMP
 		//-width, height
 		pictype = PICTYPE_BMP;
 
@@ -34,10 +35,10 @@ bool PicInfo::ReadFile(WCHAR file[])
 
 		in.seekg(2, ios::cur);
 		in.read((char*)&(depthinfile), 2);
-		//像素深度
+		// 像素深度
 		generaldepth = depthinfile;
 
-		//计算通道数
+		// 计算通道数
 		switch (depthinfile)
 		{
 		case 1:
@@ -57,7 +58,7 @@ bool PicInfo::ReadFile(WCHAR file[])
 		&& ((WORD*)identifier)[2] == (WORD)0x0A0D
 		&& ((WORD*)identifier)[3] == (WORD)0x0A1A)
 	{
-		//PNG-BIGENDIAN
+		// PNG-BIGENDIAN
 		//-width, height, depth, colortype
 		pictype = PICTYPE_PNG;
 
@@ -87,17 +88,17 @@ bool PicInfo::ReadFile(WCHAR file[])
 			channels = 4;
 			break;
 		}
-		//像素深度
+		// 像素深度
 		generaldepth = depthinfile*channels;
 	}
 	else if (((WORD*)identifier)[0] == (WORD)0xD8FF
 		&& (((WORD*)identifier)[1] & (WORD)0xE0FF) == (WORD)0xE0FF)
 	{
-		//JPG
+		// JPG
 		//-width, height
 		pictype = PICTYPE_JPG;
 
-		//寻找标签
+		// 寻找 FFCX 标签
 		long long FFC0pos = -1;
 		int poscount = 0;
 		in.seekg(0, ios::beg);
@@ -113,7 +114,7 @@ bool PicInfo::ReadFile(WCHAR file[])
 
 			byte f, r;
 			in >> f;
-			if (f == 0xFF)//搜索0xFFCX
+			if (f == 0xFF)// 搜索 0xFFCX
 			{
 				in >> r;
 				if (r == 0xC0 || r==0xC1 || r == 0xC2)
@@ -144,14 +145,14 @@ bool PicInfo::ReadFile(WCHAR file[])
 		&& ((WORD*)identifier)[1] == (WORD)0x002A
 		&& identifier[4] >= (byte)0x08)
 	{
-		//TIFF
+		// TIFF
 		pictype = PICTYPE_TIFF;
 	}
 	else if (((WORD*)identifier)[0] == (WORD)0x4947
 		&& ((WORD*)identifier)[1] == (WORD)0x3846
 		&& (((WORD*)identifier)[2] == (WORD)0x6137 || ((WORD*)identifier)[2] == (WORD)0x6139))
 	{
-		//GIF
+		// GIF
 		//-width, height
 		pictype = PICTYPE_GIF;
 
@@ -162,7 +163,7 @@ bool PicInfo::ReadFile(WCHAR file[])
 	}
 	else
 	{
-		//CANNOT IDENTIFY
+		// 不能识别的图片格式
 		pictype = PICTYPE_UNKNOWN;
 
 		return false;
@@ -176,10 +177,5 @@ bool PicInfo::ReadFile(WCHAR file[])
 	in.close();
 
 	return true;
-}
-
-bool PicInfo::GetSize(WCHAR file[])
-{
-	return false;
 }
 

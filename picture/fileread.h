@@ -68,48 +68,6 @@ struct memPic {
 	bool LoadImg(WCHAR *file, int w = 0, int h = 0);
 };
 
-class PicShow {
-private:
-	CDC *showpDC;		//目标DC
-	memDCBMP *mDC;
-
-	memPic *piclist;	//存储图片列表[从1下标开始存储]
-	CPoint base;		//图片在DC中的位置（左上角）
-
-	memPic *back;		//背景图
-	POINT backbias;		//背景图偏移
-	RECT backrect;		//背景图矩形
-	RECT interrect;		//背景图与图片交集
-
-	int listlen;		//图片列表长度
-	int piccounts;		//实际存储图片数
-
-	int livepic;		//当前活跃图片下标
-	byte livealpha;		//当前活跃图片显示的alpha
-
-public:
-	int width, height;	//基本尺寸
-	bool onenter;
-
-	PicShow();
-	PicShow(int listlen, CPoint b = { 0, 0 });
-
-	memPic *GetOne(int index);
-	bool SetBack(PicShow *ps2, int index);
-
-	void SetBase(int x, int y);
-	void SetDC(CDC *pDC);
-
-	void SetList(int listlen);//设置图片列表长度，将清空已有图片
-
-	bool AddPic(WCHAR *filename);
-
-	bool Show(int picnum = 1, BYTE alpha = 255, bool redrawback = false);
-
-	void OnPaint();
-};
-
-
 #endif // USE_GDIGUI
 
 class File {

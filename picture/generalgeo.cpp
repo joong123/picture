@@ -2,27 +2,27 @@
 
 #include "generalgeo.h"
 
-VECTOR3::VECTOR3(const VECTOR3 &v2)
+VECTOR3f::VECTOR3f(const VECTOR3f &v2)
 {
 	x = v2.x;
 	y = v2.y;
 	z = v2.z;
 }
 
-VECTOR3::VECTOR3(FLOAT x, FLOAT y, FLOAT z)
+VECTOR3f::VECTOR3f(FLOAT x, FLOAT y, FLOAT z)
 {
 	this->x = x;
 	this->y = y;
 	this->z = z;
 }
 
-void VECTOR3::Output(ostream &out)
+void VECTOR3f::Output(ostream &out)
 {
 	out << '(';
 	out << setprecision(3) << x << ", " << y << ", " << z << ')';
 }
 
-VECTOR3 & VECTOR3::operator=(const VECTOR3 &v2)
+VECTOR3f & VECTOR3f::operator=(const VECTOR3f &v2)
 {
 	x = v2.x;
 	y = v2.y;
@@ -31,7 +31,7 @@ VECTOR3 & VECTOR3::operator=(const VECTOR3 &v2)
 	return *this;
 }
 
-VECTOR3 & VECTOR3::operator+=(const VECTOR3 &v2)
+VECTOR3f & VECTOR3f::operator+=(const VECTOR3f &v2)
 {
 	x += v2.x;
 	y += v2.y;
@@ -40,7 +40,7 @@ VECTOR3 & VECTOR3::operator+=(const VECTOR3 &v2)
 	return *this;
 }
 
-VECTOR3 & VECTOR3::operator-=(const VECTOR3 &v2)
+VECTOR3f & VECTOR3f::operator-=(const VECTOR3f &v2)
 {
 	x -= v2.x;
 	y -= v2.y;
@@ -49,7 +49,7 @@ VECTOR3 & VECTOR3::operator-=(const VECTOR3 &v2)
 	return *this;
 }
 
-VECTOR3 & VECTOR3::operator*=(FLOAT f)
+VECTOR3f & VECTOR3f::operator*=(FLOAT f)
 {
 	x *= f;
 	x *= f;
@@ -58,7 +58,7 @@ VECTOR3 & VECTOR3::operator*=(FLOAT f)
 	return *this;
 }
 
-VECTOR3 & VECTOR3::operator/=(FLOAT f)
+VECTOR3f & VECTOR3f::operator/=(FLOAT f)
 {
 	if (f != 0.0f)
 	{
@@ -70,14 +70,14 @@ VECTOR3 & VECTOR3::operator/=(FLOAT f)
 	return *this;
 }
 
-VECTOR3 VECTOR3::operator+() const
+VECTOR3f VECTOR3f::operator+() const
 {
 	return *this;
 }
 
-VECTOR3 VECTOR3::operator-() const
+VECTOR3f VECTOR3f::operator-() const
 {
-	VECTOR3 rs;
+	VECTOR3f rs;
 	rs.x = -x;
 	rs.y = -y;
 	rs.z = -z;
@@ -85,9 +85,9 @@ VECTOR3 VECTOR3::operator-() const
 	return rs;
 }
 
-VECTOR3 VECTOR3::operator+(const VECTOR3 &v2) const
+VECTOR3f VECTOR3f::operator+(const VECTOR3f &v2) const
 {
-	VECTOR3 rs;
+	VECTOR3f rs;
 	rs.x = x + v2.x;
 	rs.y = y + v2.y;
 	rs.z = z + v2.z;
@@ -95,9 +95,9 @@ VECTOR3 VECTOR3::operator+(const VECTOR3 &v2) const
 	return rs;
 }
 
-VECTOR3 VECTOR3::operator-(const VECTOR3 &v2) const
+VECTOR3f VECTOR3f::operator-(const VECTOR3f &v2) const
 {
-	VECTOR3 rs;
+	VECTOR3f rs;
 	rs.x = x - v2.x;
 	rs.y = y - v2.y;
 	rs.z = z - v2.z;
@@ -105,9 +105,9 @@ VECTOR3 VECTOR3::operator-(const VECTOR3 &v2) const
 	return rs;
 }
 
-VECTOR3 VECTOR3::operator*(FLOAT f) const
+VECTOR3f VECTOR3f::operator*(FLOAT f) const
 {
-	VECTOR3 rs;
+	VECTOR3f rs;
 	rs.x = x * f;
 	rs.y = y * f;
 	rs.z = z * f;
@@ -115,9 +115,9 @@ VECTOR3 VECTOR3::operator*(FLOAT f) const
 	return rs;
 }
 
-VECTOR3 VECTOR3::operator/(FLOAT f) const
+VECTOR3f VECTOR3f::operator/(FLOAT f) const
 {
-	VECTOR3 rs;
+	VECTOR3f rs;
 	if (f != 0.0f)
 	{
 		rs.x = x / f;
@@ -170,9 +170,23 @@ SPHERICAL_ANGLE GetSphericalAngle(short x, short y, short z)
 	return{ azi,zen };
 }
 
-VECTOR3 operator*(FLOAT f, const VECTOR3 &v2)
+const WCHAR * GetDegreeOfRadian(double angle)
 {
-	VECTOR3 rs;
+	WCHAR strAngle[32] = L"";
+	double degree = R2D(angle);
+	int deg = (int)degree;// 度整数值
+	degree = degree - deg;
+	int min = (int)(degree * 60);// 分整数值
+	degree = degree - min / 60.0;
+	double sec = degree * 3600;
+	StringCchPrintf(strAngle, 32, L"%d°%d'%.2lf\"", deg, min, sec);
+
+	return strAngle;
+}
+
+VECTOR3f operator*(FLOAT f, const VECTOR3f &v2)
+{
+	VECTOR3f rs;
 	rs.x = f*v2.x;
 	rs.y = f*v2.y;
 	rs.z = f*v2.z;
@@ -180,11 +194,174 @@ VECTOR3 operator*(FLOAT f, const VECTOR3 &v2)
 	return rs;
 }
 
-ostream & operator<<(ostream & out, const VECTOR3 &v)
+ostream & operator<<(ostream & out, const VECTOR3f &v)
 {
 	out << setw(4) << v.x << ", " << v.y << ", " << v.z;
 
 	return out;
+}
+
+BOOL VECTOR3f::operator==(const VECTOR3f &v2) const
+{
+	return (x == v2.x && y == v2.y && z == v2.z);
+}
+
+BOOL VECTOR3f::operator!=(const VECTOR3f &v2) const
+{
+	return (x != v2.x || y != v2.y || z != v2.z);
+}
+
+FLOAT VECTOR3f::Length() const
+{
+	return sqrtf(x*x + y*y + z*z);
+}
+
+FLOAT VECTOR3f::LengthSq() const
+{
+	return x*x + y*y + z*z;
+}
+
+
+
+VECTOR3::VECTOR3(const VECTOR3 &v2)
+{
+	x = v2.x;
+	y = v2.y;
+	z = v2.z;
+}
+
+VECTOR3::VECTOR3(int x2, int y2, int z2)
+{
+	x = x2;
+	y = y2;
+	z = z2;
+}
+
+VECTOR3 & VECTOR3::operator=(const VECTOR3 &v2)
+{
+	x = v2.x;
+	y = v2.y;
+	z = v2.z;
+
+	return *this;
+}
+
+VECTOR3 & VECTOR3::operator+=(const VECTOR3 &v2)
+{
+	x += v2.x;
+	y += v2.y;
+	z += v2.z;
+
+	return *this;
+}
+
+VECTOR3 & VECTOR3::operator-=(const VECTOR3 &v2)
+{
+	x -= v2.x;
+	y -= v2.y;
+	z -= v2.z;
+
+	return *this;
+}
+
+VECTOR3 & VECTOR3::operator*=(int i2)
+{
+	x *= i2;
+	x *= i2;
+	x *= i2;
+
+	return *this;
+}
+
+VECTOR3 & VECTOR3::operator/=(int i2)
+{
+	if (i2 != 0)
+	{
+		x /= i2;
+		x /= i2;
+		x /= i2;
+	}
+
+	return *this;
+}
+
+VECTOR3 VECTOR3::operator+() const
+{
+	return *this;
+}
+
+VECTOR3 VECTOR3::operator-() const
+{
+	return VECTOR3(-x, -y, -z);
+}
+
+VECTOR3 VECTOR3::operator+(const VECTOR3 &v2) const
+{
+	VECTOR3 rs;
+	rs.x = x + v2.x;
+	rs.y = y + v2.y;
+	rs.z = z + v2.z;
+
+	return rs;
+}
+
+VECTOR3 VECTOR3::operator-(const VECTOR3 &v2) const
+{
+	VECTOR3 rs;
+	rs.x = x - v2.x;
+	rs.y = y - v2.y;
+	rs.z = z - v2.z;
+
+	return rs;
+}
+
+VECTOR3 VECTOR3::operator*(int i2) const
+{
+	VECTOR3 rs;
+	rs.x = x * i2;
+	rs.y = y * i2;
+	rs.z = z * i2;
+
+	return rs;
+}
+
+VECTOR3 VECTOR3::operator/(int i2) const
+{
+	VECTOR3 rs;
+	if (i2 != 0)
+	{
+		rs.x = x / i2;
+		rs.y = y / i2;
+		rs.z = z / i2;
+	}
+	else
+	{
+		rs.x = x;
+		rs.y = y;
+		rs.z = z;
+	}
+
+	return rs;
+}
+
+VECTOR3 operator*(int i2, const VECTOR3 &v2)
+{
+	VECTOR3 rs;
+	rs.x = i2*v2.x;
+	rs.y = i2*v2.y;
+	rs.z = i2*v2.z;
+
+	return rs;
+}
+
+VECTOR3s operator*(int i2, const VECTOR3s &v2)
+{
+	VECTOR3s rs;
+	rs.x = i2*v2.x;
+	rs.y = i2*v2.y;
+	rs.z = i2*v2.z;
+
+	return rs;
 }
 
 BOOL VECTOR3::operator==(const VECTOR3 &v2) const
@@ -199,192 +376,29 @@ BOOL VECTOR3::operator!=(const VECTOR3 &v2) const
 
 FLOAT VECTOR3::Length() const
 {
-	return sqrtf(x*x + y*y + z*z);
+	return sqrtf((float)x*x + (float)y*y + (float)z*z);
 }
 
 FLOAT VECTOR3::LengthSq() const
 {
-	return x*x + y*y + z*z;
-}
-
-
-
-VECTORi3::VECTORi3(const VECTORi3 &v2)
-{
-	x = v2.x;
-	y = v2.y;
-	z = v2.z;
-}
-
-VECTORi3::VECTORi3(int x2, int y2, int z2)
-{
-	x = x2;
-	y = y2;
-	z = z2;
-}
-
-VECTORi3 & VECTORi3::operator=(const VECTORi3 &v2)
-{
-	x = v2.x;
-	y = v2.y;
-	z = v2.z;
-
-	return *this;
-}
-
-VECTORi3 & VECTORi3::operator+=(const VECTORi3 &v2)
-{
-	x += v2.x;
-	y += v2.y;
-	z += v2.z;
-
-	return *this;
-}
-
-VECTORi3 & VECTORi3::operator-=(const VECTORi3 &v2)
-{
-	x -= v2.x;
-	y -= v2.y;
-	z -= v2.z;
-
-	return *this;
-}
-
-VECTORi3 & VECTORi3::operator*=(int i2)
-{
-	x *= i2;
-	x *= i2;
-	x *= i2;
-
-	return *this;
-}
-
-VECTORi3 & VECTORi3::operator/=(int i2)
-{
-	if (i2 != 0)
-	{
-		x /= i2;
-		x /= i2;
-		x /= i2;
-	}
-
-	return *this;
-}
-
-VECTORi3 VECTORi3::operator+() const
-{
-	return *this;
-}
-
-VECTORi3 VECTORi3::operator-() const
-{
-	return VECTORi3(-x, -y, -z);
-}
-
-VECTORi3 VECTORi3::operator+(const VECTORi3 &v2) const
-{
-	VECTORi3 rs;
-	rs.x = x + v2.x;
-	rs.y = y + v2.y;
-	rs.z = z + v2.z;
-
-	return rs;
-}
-
-VECTORi3 VECTORi3::operator-(const VECTORi3 &v2) const
-{
-	VECTORi3 rs;
-	rs.x = x - v2.x;
-	rs.y = y - v2.y;
-	rs.z = z - v2.z;
-
-	return rs;
-}
-
-VECTORi3 VECTORi3::operator*(int i2) const
-{
-	VECTORi3 rs;
-	rs.x = x * i2;
-	rs.y = y * i2;
-	rs.z = z * i2;
-
-	return rs;
-}
-
-VECTORi3 VECTORi3::operator/(int i2) const
-{
-	VECTORi3 rs;
-	if (i2 != 0)
-	{
-		rs.x = x / i2;
-		rs.y = y / i2;
-		rs.z = z / i2;
-	}
-	else
-	{
-		rs.x = x;
-		rs.y = y;
-		rs.z = z;
-	}
-
-	return rs;
-}
-
-VECTORi3 operator*(int i2, const VECTORi3 &v2)
-{
-	VECTORi3 rs;
-	rs.x = i2*v2.x;
-	rs.y = i2*v2.y;
-	rs.z = i2*v2.z;
-
-	return rs;
-}
-
-VECTORs3 operator*(int i2, const VECTORs3 &v2)
-{
-	VECTORs3 rs;
-	rs.x = i2*v2.x;
-	rs.y = i2*v2.y;
-	rs.z = i2*v2.z;
-
-	return rs;
-}
-
-BOOL VECTORi3::operator==(const VECTORi3 &v2) const
-{
-	return (x == v2.x && y == v2.y && z == v2.z);
-}
-
-BOOL VECTORi3::operator!=(const VECTORi3 &v2) const
-{
-	return (x != v2.x || y != v2.y || z != v2.z);
-}
-
-FLOAT VECTORi3::Length() const
-{
-	return sqrtf((float)x*x + (float)y*y + (float)z*z);
-}
-
-FLOAT VECTORi3::LengthSq() const
-{
 	return (float)x*x + (float)y*y + (float)z*z;
 }
 
-VECTORs3::VECTORs3(const VECTORs3 &v2)
+VECTOR3s::VECTOR3s(const VECTOR3s &v2)
 {
 	x = v2.x;
 	y = v2.y;
 	z = v2.z;
 }
 
-VECTORs3::VECTORs3(int x2, int y2, int z2)
+VECTOR3s::VECTOR3s(int x2, int y2, int z2)
 {
 	x = x2;
 	y = y2;
 	z = z2;
 }
 
-VECTORs3 & VECTORs3::operator=(const VECTORs3 &v2)
+VECTOR3s & VECTOR3s::operator=(const VECTOR3s &v2)
 {
 	x = v2.x;
 	y = v2.y;
@@ -393,7 +407,7 @@ VECTORs3 & VECTORs3::operator=(const VECTORs3 &v2)
 	return *this;
 }
 
-VECTORs3 & VECTORs3::operator+=(const VECTORs3 &v2)
+VECTOR3s & VECTOR3s::operator+=(const VECTOR3s &v2)
 {
 	x += v2.x;
 	y += v2.y;
@@ -402,7 +416,7 @@ VECTORs3 & VECTORs3::operator+=(const VECTORs3 &v2)
 	return *this;
 }
 
-VECTORs3 & VECTORs3::operator-=(const VECTORs3 &v2)
+VECTOR3s & VECTOR3s::operator-=(const VECTOR3s &v2)
 {
 	x -= v2.x;
 	y -= v2.y;
@@ -411,7 +425,7 @@ VECTORs3 & VECTORs3::operator-=(const VECTORs3 &v2)
 	return *this;
 }
 
-VECTORs3 & VECTORs3::operator*=(int i2)
+VECTOR3s & VECTOR3s::operator*=(int i2)
 {
 	x *= i2;
 	x *= i2;
@@ -420,7 +434,7 @@ VECTORs3 & VECTORs3::operator*=(int i2)
 	return *this;
 }
 
-VECTORs3 & VECTORs3::operator/=(int i2)
+VECTOR3s & VECTOR3s::operator/=(int i2)
 {
 	if (i2 != 0)
 	{
@@ -432,19 +446,19 @@ VECTORs3 & VECTORs3::operator/=(int i2)
 	return *this;
 }
 
-VECTORs3 VECTORs3::operator+() const
+VECTOR3s VECTOR3s::operator+() const
 {
 	return *this;
 }
 
-VECTORs3 VECTORs3::operator-() const
+VECTOR3s VECTOR3s::operator-() const
 {
-	return VECTORs3(-x, -y, -z);
+	return VECTOR3s(-x, -y, -z);
 }
 
-VECTORs3 VECTORs3::operator+(const VECTORs3 &v2) const
+VECTOR3s VECTOR3s::operator+(const VECTOR3s &v2) const
 {
-	VECTORs3 rs;
+	VECTOR3s rs;
 	rs.x = x + v2.x;
 	rs.y = y + v2.y;
 	rs.z = z + v2.z;
@@ -452,9 +466,9 @@ VECTORs3 VECTORs3::operator+(const VECTORs3 &v2) const
 	return rs;
 }
 
-VECTORs3 VECTORs3::operator-(const VECTORs3 &v2) const
+VECTOR3s VECTOR3s::operator-(const VECTOR3s &v2) const
 {
-	VECTORs3 rs;
+	VECTOR3s rs;
 	rs.x = x - v2.x;
 	rs.y = y - v2.y;
 	rs.z = z - v2.z;
@@ -462,9 +476,9 @@ VECTORs3 VECTORs3::operator-(const VECTORs3 &v2) const
 	return rs;
 }
 
-VECTORs3 VECTORs3::operator*(int i2) const
+VECTOR3s VECTOR3s::operator*(int i2) const
 {
-	VECTORs3 rs;
+	VECTOR3s rs;
 	rs.x = x * i2;
 	rs.y = y * i2;
 	rs.z = z * i2;
@@ -472,9 +486,9 @@ VECTORs3 VECTORs3::operator*(int i2) const
 	return rs;
 }
 
-VECTORs3 VECTORs3::operator/(int i2) const
+VECTOR3s VECTOR3s::operator/(int i2) const
 {
-	VECTORs3 rs;
+	VECTOR3s rs;
 	if (i2 != 0)
 	{
 		rs.x = x / i2;
@@ -491,22 +505,22 @@ VECTORs3 VECTORs3::operator/(int i2) const
 	return rs;
 }
 
-BOOL VECTORs3::operator==(const VECTORs3 &v2) const
+BOOL VECTOR3s::operator==(const VECTOR3s &v2) const
 {
 	return (x == v2.x && y == v2.y && z == v2.z);
 }
 
-BOOL VECTORs3::operator!=(const VECTORs3 &v2) const
+BOOL VECTOR3s::operator!=(const VECTOR3s &v2) const
 {
 	return (x != v2.x || y != v2.y || z != v2.z);
 }
 
-FLOAT VECTORs3::Length() const
+FLOAT VECTOR3s::Length() const
 {
 	return sqrtf((float)x*x + (float)y*y + (float)z*z);
 }
 
-FLOAT VECTORs3::LengthSq() const
+FLOAT VECTOR3s::LengthSq() const
 {
 	return (float)x*x + (float)y*y + (float)z*z;
 }

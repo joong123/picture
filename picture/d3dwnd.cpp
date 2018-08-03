@@ -37,7 +37,7 @@ bool D3DWnd::D3DCreateWindow(WCHAR * lpWindowName
 
 	if (hInstance == NULL)
 		hInstance = (HINSTANCE)GetModuleHandle(NULL);
-	hinst = hInstance;
+	hInst = hInstance;
 
 	WCHAR szExePath[MAX_PATH];
 	GetModuleFileName(NULL, szExePath, MAX_PATH);
@@ -115,7 +115,7 @@ inline void D3DWnd::Get2WndRect()
 	rcClient.right += clienttl.x;
 	rcClient.bottom += clienttl.y;
 
-	GetWindowRect(hWnd, &windowrect);//得到窗口区域
+	GetWindowRect(hWnd, &rcWindow);//得到窗口区域
 }
 
 bool D3DWnd::CreateDevice(D3DFORMAT textFormat, UINT backbuffercount)
@@ -136,30 +136,30 @@ bool D3DWnd::CreateDevice(D3DFORMAT textFormat, UINT backbuffercount)
 		MessageBoxW(hWnd, L"get caps FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 
 	//display mode
-	hr = lpD3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displaymode);
+	hr = lpD3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &displayMode);
 	if (FAILED(hr))
 		MessageBoxW(hWnd, L"get displaymode FAILED!", L"ERROR", MB_OK | MB_APPLMODAL);
 
 	mst = D3DMULTISAMPLE_NONE;
 
 	//D3DPRESENT_PARAMETERS
-	ZeroMemory(&d3dpp, sizeof(d3dpp));
-	d3dpp.BackBufferWidth = WIDTHOF(rcClient);
-	d3dpp.BackBufferHeight = HEIGHTOF(rcClient);
-	d3dpp.BackBufferFormat = textFormat;//加速，displaymode.Format
-	d3dpp.BackBufferCount = backbuffercount;
-	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-	d3dpp.hDeviceWindow = hWnd;
-	d3dpp.Windowed = TRUE;
-	d3dpp.EnableAutoDepthStencil = FALSE;//深度缓冲
-	d3dpp.AutoDepthStencilFormat = D3DFMT_D24X8;//加速用D3DFMT_D24S8不用D3DFMT_D16
-	d3dpp.Flags = 0;//允许backbuffer lockrect:D3DPRESENTFLAG_LOCKABLE_BACKBUFFER
-	d3dpp.FullScreen_RefreshRateInHz = 0;
+	ZeroMemory(&d3dParam, sizeof(d3dParam));
+	d3dParam.BackBufferWidth = WIDTHOF(rcClient);
+	d3dParam.BackBufferHeight = HEIGHTOF(rcClient);
+	d3dParam.BackBufferFormat = textFormat;//加速，displayMode.Format
+	d3dParam.BackBufferCount = backbuffercount;
+	d3dParam.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	d3dParam.hDeviceWindow = hWnd;
+	d3dParam.Windowed = TRUE;
+	d3dParam.EnableAutoDepthStencil = FALSE;//深度缓冲
+	d3dParam.AutoDepthStencilFormat = D3DFMT_D24X8;//加速用D3DFMT_D24S8不用D3DFMT_D16
+	d3dParam.Flags = 0;//允许backbuffer lockrect:D3DPRESENTFLAG_LOCKABLE_BACKBUFFER
+	d3dParam.FullScreen_RefreshRateInHz = 0;
 	//关闭垂直同步,(极大增加帧率，略增加内存占用，较大增加cpu占用率)
 	//在主循环限制帧率情况下，开启默认垂直同步可能略增加cpu占用率
-	d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
-	d3dpp.MultiSampleType = mst;
-	d3dpp.MultiSampleQuality = 0;
+	d3dParam.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	d3dParam.MultiSampleType = mst;
+	d3dParam.MultiSampleQuality = 0;
 
 	if (caps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT)
 		vertexprocessing = D3DCREATE_HARDWARE_VERTEXPROCESSING;
@@ -169,7 +169,7 @@ bool D3DWnd::CreateDevice(D3DFORMAT textFormat, UINT backbuffercount)
 	SAFE_RELEASE(device);
 	hr = lpD3D->CreateDevice(
 		D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd
-		, vertexprocessing, &d3dpp, &device
+		, vertexprocessing, &d3dParam, &device
 	);
 
 	if (FAILED(hr))
@@ -230,34 +230,6 @@ bool D3DWnd::CreateMeshFVF(LPD3DXMESH *ppmesh, void * vertice, void * index, UIN
 	return true;
 }
 
-bool D3DWnd::ChangeMeshColor_tail(LPD3DXMESH * ppmesh, D3DCOLOR color)
-{
-	if (!ppmesh)
-		return false;
-
-	if(!(*ppmesh))
-		return false;
-
-	DWORD sizev = (*ppmesh)->GetNumBytesPerVertex();
-	DWORD numvertices = (*ppmesh)->GetNumVertices();
-
-	if (!numvertices)
-		return false;
-
-	LPDIRECT3DVERTEXBUFFER9 newbuf;
-	(*ppmesh)->GetVertexBuffer(&newbuf);
-	void* vbuf;
-	if (FAILED(newbuf->Lock(0, 0, &vbuf, 0)))
-		return false;
-	for (int i = 0; i < (long long)numvertices; i++)
-	{
-		*(D3DCOLOR*)((byte*)vbuf + sizev*(i + 1) - sizeof(D3DCOLOR)) = color;//改颜色
-	}
-	newbuf->Unlock();
-
-	return true;
-}
-
 bool D3DWnd::RefreshVertexBuffer(LPDIRECT3DVERTEXBUFFER9 * vb, void * vertice)
 {
 	if (!vertice || !vb || !(*vb))
@@ -271,74 +243,6 @@ bool D3DWnd::RefreshVertexBuffer(LPDIRECT3DVERTEXBUFFER9 * vb, void * vertice)
 		return false;
 	memcpy(ptr, vertice, vbd.Size);
 	(*vb)->Unlock();
-
-	return true;
-}
-
-bool D3DWnd::ChangeVBColor_tail(LPDIRECT3DVERTEXBUFFER9 * vb, D3DCOLOR color, UINT16 sizev, int nums)
-{
-	if (!device || !vb || !(*vb) || !sizev)
-		return false;
-
-	D3DVERTEXBUFFER_DESC vbd;
-	(*vb)->GetDesc(&vbd);
-	int vertexs = vbd.Size / sizev;
-
-	void *ptr;
-	if (FAILED((*vb)->Lock(0, vbd.Size, (void**)&ptr, 0)))
-		return false;
-
-	if (nums > 0)
-		vertexs = nums;
-	for (int i = 0; i < vertexs; i++)
-	{
-		*(D3DCOLOR*)((byte*)ptr + sizev*(i + 1) - sizeof(D3DCOLOR)) = color;//改颜色
-	}
-	(*vb)->Unlock();
-
-	return true;
-}
-
-bool D3DWnd::CreateVertexBuffer_Custom1(LPDIRECT3DVERTEXBUFFER9 * vb, int x, int y, int r, D3DCOLOR color)
-{
-	if (!device || (r < 1))
-		return false;
-
-	const int fans = 20;
-	FVF2 g_vertices[2 + fans];
-	g_vertices[0] = { (float)x, (float)y, 0.0f, 1.0f, color };
-	g_vertices[1] = { (float)x + r, (float)y, 0.0f, 1.0f, color };
-	for (int i = 0; i < fans - 1; i++)
-	{
-		g_vertices[i + 2] = { (float)(x + r*cos(-(i + 1)*PI / fans))
-			, (float)(y - r*sin(-(i + 1)*PI / fans)), 0.0f, 1.0f, color };
-	}
-	g_vertices[fans - 1] = { (float)(x - r), (float)(y), 0.0f, 1.0f, color };
-
-	if (FAILED(device->CreateVertexBuffer(sizeof(g_vertices), 0,
-		FVF_2CPD, D3DPOOL_SYSTEMMEM, vb, NULL)))
-		return false;
-	RefreshVertexBuffer(vb, g_vertices);
-
-	return true;
-}
-
-bool D3DWnd::CreateVertexBuffer_Custom2(LPDIRECT3DVERTEXBUFFER9 * vb, int x, int y, int w, int h, D3DCOLOR color)
-{
-	if (!device || (w < 1) || (h < 1))
-		return false;
-
-	FVF2 g_vertices[4] = {
-		{ (float)x, (float)y, 0.0f, 1.0f, color }
-		,{ (float)x + w, (float)y, 0.0f, 1.0f, color }
-		,{ (float)x, (float)y + h, 0.0f, 1.0f, color }
-		,{ (float)x, (float)y + h, 0.0f, 1.0f, color }
-	};
-
-	if (FAILED(device->CreateVertexBuffer(sizeof(g_vertices), 0,
-		FVF_2CPD, D3DPOOL_SYSTEMMEM, vb, NULL)))
-		return false;
-	RefreshVertexBuffer(vb, g_vertices);
 
 	return true;
 }
@@ -693,11 +597,11 @@ void D3DWnd::ChangeMultiSample()
 	while (newmst != mst)
 	{
 		if (lpD3D->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT,
-			D3DDEVTYPE_HAL, displaymode.Format, true,
+			D3DDEVTYPE_HAL, displayMode.Format, true,
 			newmst, NULL) == D3D_OK)
 		{
 			// 保存多采样类型
-			d3dpp.MultiSampleType = mst = newmst;
+			d3dParam.MultiSampleType = mst = newmst;
 			break;
 		}
 		newmst = (D3DMULTISAMPLE_TYPE)(newmst + 1 > D3DMULTISAMPLE_16_SAMPLES ? D3DMULTISAMPLE_NONE : newmst + 1);
@@ -741,5 +645,14 @@ WHQLLevel:%d\n",
 	}
 }
 
-
-
+char * print_guid(GUID ID) 
+{
+	char * str = (char *)malloc(39);
+	if (str == NULL)
+		return str;
+	sprintf_s(str, 39, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+		ID.Data1, ID.Data2, ID.Data3,
+		ID.Data4[0], ID.Data4[1], ID.Data4[2], ID.Data4[3],
+		ID.Data4[4], ID.Data4[5], ID.Data4[6], ID.Data4[7]);
+	return str;
+}
