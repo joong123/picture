@@ -721,8 +721,8 @@ inline bool Surfer::SurfRenew(bool acce)
 				}
 				else
 				{
-					bSampled = Sample_BiLinear(pBmp, surfData, surfSize, (ZOOMTYPE)zoom, ptSurfOffset);
-					sampleMethod = SAMPLE_BILINEAR;
+					bSampled = pBmp->Sample_Single(surfData, surfSize, (ZOOMTYPE)zoom, ptSurfOffset);
+					sampleMethod = SAMPLE_SINGLE;
 				}
 			}
 			else
@@ -730,8 +730,8 @@ inline bool Surfer::SurfRenew(bool acce)
 				if (zoom > NN_MIN)
 				{
 					// 近邻重采样
-					bSampled = Sample_NN(pBmp, surfData, surfSize, (ZOOMTYPE)zoom, ptSurfOffset);
-					sampleMethod = SAMPLE_NN;
+					bSampled = pBmp->Sample_Single(surfData, surfSize, (ZOOMTYPE)zoom, ptSurfOffset);
+					sampleMethod = SAMPLE_SINGLE;
 				}
 				else if (zoom >= 1)
 				{

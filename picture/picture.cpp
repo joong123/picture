@@ -1792,7 +1792,7 @@ bool InfoRender()
 		// 第3部分信息显示
 		if (pFontFlags != NULL)
 			pFontFlags->DrawTextW(NULL, infowstr, -1, &rcFlag
-			, DT_LEFT | DT_TOP | DT_NOCLIP, COLOR_TEXT3);
+			, DT_LEFT | DT_TOP | DT_NOCLIP, COLOR_TEXT3);//COLOR_TEXT3
 	}
 
 	return true;

@@ -696,7 +696,7 @@ bool MYCALL1 BMP::Sample_Single(DWORD * surfData, const POINT & surfSize, ZOOMTY
 		return false;
 
 	// 采样辅助参数
-	const AUXTYPE auxz = (AUXTYPE)(0.5 / zoom);
+	const AUXTYPE auxz = (AUXTYPE)(0.5 / zoom);//(AUXTYPE)(0.5 / zoom)
 	const AUXTYPE aux = (AUXTYPE)0.5 / auxz;
 	const AUXTYPE auxfront = (AUXTYPE)0.5 - auxz, auxrear = (AUXTYPE)0.5 + auxz;
 
@@ -735,11 +735,16 @@ bool MYCALL1 BMP::Sample_Single(DWORD * surfData, const POINT & surfSize, ZOOMTY
 			int fy, ry;
 			fy = (int)pixY;
 			ry = fy + 1;
-			//if (ry >= height)
-			//	ry -= 1;
+			if (ry >= height)
+				ry -= 1;
 			DWORD *srcYf = (DWORD*)data[fy];
 			DWORD *srcYr = (DWORD*)data[ry];
-
+			/*if (pixY < 0)
+			{
+				WCHAR str[256] = L"";
+				StringCchPrintf(str, 256, L" %lf", ratioYf);
+				MessageBox(NULL, str, NULL, 0);
+			}*/
 			bool alphaY = (i & TRANSPARENTBACK_MASK) > 0;
 
 			int stride = i*surfSize.x;
@@ -769,8 +774,8 @@ bool MYCALL1 BMP::Sample_Single(DWORD * surfData, const POINT & surfSize, ZOOMTY
 					int fx, rx;
 					fx = (int)pixX;
 					rx = fx + 1;
-					//if (rx >= width)// 修正，防越界
-					//	rx -= 1;
+					if (rx >= width)// 修正，防越界
+						rx -= 1;
 					// 对应原图周围4像素
 					byte *lt, *rt, *lb, *rb;
 					lt = (byte*)&srcYf[fx];
@@ -796,6 +801,13 @@ bool MYCALL1 BMP::Sample_Single(DWORD * surfData, const POINT & surfSize, ZOOMTY
 						rxb /= norm1;
 					}
 
+					//if (rx >= width || ry>=height)
+					//{
+					//	//WCHAR str[256] = L"";
+					//	//StringCchPrintf(str, 256, L"%lf, %lf", ratioXf, ratioYf);
+					//	//MessageBox(NULL, str, NULL, 0);
+					//	//rxb /= 4.4f;
+					//}
 					fxb2 = ratioXf * rb[3];
 					rxb2 = ratioXr * lb[3];
 					norm2 = fxb2 + rxb2;
@@ -919,7 +931,7 @@ bool MYCALL1 BMP::Sample_Single(DWORD * surfData, const POINT & surfSize, ZOOMTY
 					ratioXf = 1;
 				else
 					//TOPLAY: 此行的 aux 改为 zoom，auxz 改为 0.3，AUXTYPE 改成 float 可以体验魔幻效果
-					ratioXf = (float)((ratioXf - auxfront) * aux);
+					ratioXf = (float)((ratioXf - auxfront) * aux);//*aux
 				/*if (pixX < 0)//不加不会报错
 				ratioXf = 0;*/
 
@@ -1522,8 +1534,8 @@ bool MYCALL1 Sample_BiLinear(BMP *pBmp, DWORD * surfData, const POINT & surfSize
 		{
 			AUXTYPE pixY = (i + tmpOffY)*tempZH - (AUXTYPE)0.5;
 			float ratioYf = (float)(pixY - (int)pixY);
-			/*if (pixY < 0)// 不加不报错
-			ratioYf = 0;*/
+			if (pixY < 0)// TODO
+			ratioYf = 0;
 			float ratioYr = 1 - ratioYf;
 
 			int fy = (int)pixY;
@@ -1539,8 +1551,8 @@ bool MYCALL1 Sample_BiLinear(BMP *pBmp, DWORD * surfData, const POINT & surfSize
 				// 对应原图片像素位置
 				AUXTYPE pixX = pixelPosX[j];
 				float ratioXf = (float)(pixX - (int)pixX);
-				/*if (pixX < 0)
-				ratioXf = 0;*/
+				if (pixX < 0)
+				ratioXf = 0;
 				float ratioXr = 1 - ratioXf;
 
 				byte *lt, *rt, *lb, *rb;
